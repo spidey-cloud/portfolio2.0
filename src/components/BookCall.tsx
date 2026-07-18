@@ -1,0 +1,414 @@
+import { useState, ChangeEvent, FormEvent } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Calendar, Clock, Video, Globe, ChevronLeft, ChevronRight, CheckCircle2, User, Mail, MessageSquare } from "lucide-react";
+import { trackActivity } from "../lib/storage";
+
+export default function BookCall() {
+  const [selectedDate, setSelectedDate] = useState<number>(1);
+  const [use24h, setUse24h] = useState<boolean>(false);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [isBookingConfirmed, setIsBookingConfirmed] = useState<boolean>(false);
+  const [bookingDetails, setBookingDetails] = useState({
+    name: "",
+    email: "",
+    notes: ""
+  });
+  const [formErrors, setFormErrors] = useState({ name: "", email: "" });
+
+  const daysInAugust = Array.from({ length: 31 }, (_, i) => i + 1);
+  
+  // August 2026 starts on a Saturday, so there are 5 blank cells in the first week
+  const blankDays = 5; 
+
+  const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+  const timeSlots = [
+    { id: "1", time12: "10:00 AM", time24: "10:00" },
+    { id: "2", time12: "11:30 AM", time24: "11:30" },
+    { id: "3", time12: "02:00 PM", time24: "14:00" },
+    { id: "4", time12: "03:30 PM", time24: "15:30" },
+    { id: "5", time12: "05:00 PM", time24: "17:00" }
+  ];
+
+  const handleDateClick = (day: number) => {
+    setSelectedDate(day);
+    setSelectedTime(null);
+  };
+
+  const handleTimeClick = (time: string) => {
+    setSelectedTime(time);
+    trackActivity("book_call_attempt", `Selected slot ${time} for August ${selectedDate}, 2026`);
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setBookingDetails(prev => ({ ...prev, [name]: value }));
+    setFormErrors(prev => ({ ...prev, [name]: "" }));
+  };
+
+  const handleBookMeeting = (e: FormEvent) => {
+    e.preventDefault();
+    let hasErrors = false;
+    const errors = { name: "", email: "" };
+
+    if (!bookingDetails.name.trim()) {
+      errors.name = "Name is required";
+      hasErrors = true;
+    }
+    if (!bookingDetails.email.trim()) {
+      errors.email = "Email is required";
+      hasErrors = true;
+    } else if (!/\S+@\S+\.\S+/.test(bookingDetails.email)) {
+      errors.email = "Please enter a valid email";
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setIsBookingConfirmed(true);
+    trackActivity(
+      "book_call_success",
+      `Meeting booked by ${bookingDetails.name} (${bookingDetails.email}) for ${getSelectedDayString()} @ ${selectedTime}`
+    );
+  };
+
+  const handleResetBooking = () => {
+    setSelectedTime(null);
+    setIsBookingConfirmed(false);
+    setBookingDetails({ name: "", email: "", notes: "" });
+  };
+
+  // Helper to format selected day label
+  const getSelectedDayString = () => {
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    // August 1, 2026 is Saturday (index 6)
+    const dayOfWeekIndex = (6 + (selectedDate - 1)) % 7;
+    return `${dayNames[dayOfWeekIndex]} ${selectedDate.toString().padStart(2, "0")}`;
+  };
+
+  return (
+    <section
+      id="book-a-call"
+      className="relative w-full py-[160px] bg-[#0B0B12] px-6 md:px-12 overflow-hidden border-b border-white/5"
+    >
+      <div className="max-w-[1600px] mx-auto">
+        
+        {/* Section Header */}
+        <div className="text-center space-y-6 mb-16">
+          <motion.h2
+            initial={{ y: 30, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-[#F4EEE8] font-black tracking-[-0.03em] uppercase leading-none text-4xl sm:text-5xl md:text-6xl"
+          >
+            PARTNER WITH US. LAUNCH FAST.
+          </motion.h2>
+
+          <motion.p
+            initial={{ y: 30, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="text-[#A8A8B0] text-base md:text-lg font-light max-w-[750px] mx-auto leading-relaxed"
+          >
+            I run <strong className="text-[#F4EEE8] font-medium">Zenith Studio</strong>, an AI-powered agency helping founders go from zero to launch — fast. We're gifting 4 months of post-launch support to the first 10 signups.
+          </motion.p>
+        </div>
+
+        {/* Calendar Card Wrap */}
+        <motion.div
+          initial={{ y: 50, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1 }}
+          className="w-full max-w-[1100px] mx-auto bg-[#171721] rounded-3xl border border-white/5 shadow-2xl p-6 md:p-10 overflow-hidden relative"
+        >
+          <AnimatePresence mode="wait">
+            {!isBookingConfirmed ? (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                
+                {/* Left Panel: Event Info */}
+                <div className="lg:col-span-4 lg:border-r lg:border-white/5 lg:pr-10 space-y-6 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    {/* Header Agency Brand info */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                        <span className="text-purple-400 text-xs font-black">ZS</span>
+                      </div>
+                      <div>
+                        <h4 className="text-[#F4EEE8] font-bold text-sm tracking-wide">Zenith Studio</h4>
+                        <p className="text-[#A3A3AA] text-[11px] font-light">Web development</p>
+                      </div>
+                    </div>
+
+                    {/* Event Name */}
+                    <h3 className="text-xl md:text-2xl font-black text-[#F4EEE8] tracking-tight leading-tight">
+                      30 Minute Strategy Call
+                    </h3>
+
+                    {/* Metadata Items */}
+                    <div className="space-y-3.5 text-xs text-[#A8A8B0] font-light">
+                      <div className="flex items-center gap-2.5">
+                        <Clock className="w-4 h-4 text-purple-400" />
+                        <span>30m</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <Video className="w-4 h-4 text-purple-400" />
+                        <span>Cal Video (Google Meet)</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <Globe className="w-4 h-4 text-purple-400" />
+                        <span>Asia/Kolkata GMT+05:30</span>
+                      </div>
+                    </div>
+
+                    {/* Promo Info */}
+                    <div className="text-xs text-[#A3A3AA] leading-relaxed font-light pt-6 border-t border-white/5 space-y-2">
+                      <p className="font-semibold text-[#F4EEE8]">Exclusive founder offer:</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>3 months FREE maintenance for the first 10 clients.</li>
+                        <li>We don't just build websites. We launch dreams. Let's build yours.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Powered By Branding */}
+                  <div className="text-[10px] text-white/20 uppercase tracking-widest pt-4 lg:pt-0">
+                    Cal.com Mockup
+                  </div>
+                </div>
+
+                {/* Middle Panel: Calendar */}
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[#F4EEE8] font-bold text-sm tracking-wide">
+                      August 2026
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <button className="w-8 h-8 rounded-full border border-white/5 hover:border-white/20 flex items-center justify-center text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button className="w-8 h-8 rounded-full border border-white/5 hover:border-white/20 flex items-center justify-center text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Weekdays */}
+                  <div className="grid grid-cols-7 gap-2 text-center">
+                    {weekDays.map(d => (
+                      <span key={d} className="text-[10px] text-white/30 font-bold tracking-wider">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-2">
+                    {/* Blank slots */}
+                    {Array.from({ length: blankDays }).map((_, i) => (
+                      <div key={`blank-${i}`} className="aspect-square" />
+                    ))}
+
+                    {/* Day numbers */}
+                    {daysInAugust.map(day => {
+                      const isSelected = selectedDate === day;
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => handleDateClick(day)}
+                          className={`aspect-square rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 relative cursor-pointer ${
+                            isSelected
+                              ? "bg-[#F4EEE8] text-[#0B0B12]"
+                              : "text-[#F4EEE8] hover:bg-white/5 border border-transparent hover:border-white/10"
+                          }`}
+                        >
+                          {day}
+                          {/* Green indicator for custom offer availability */}
+                          <span className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isSelected ? "bg-purple-600" : "bg-emerald-400"}`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right Panel: Time slots & booking panel */}
+                <div className="lg:col-span-3 space-y-6 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[#F4EEE8] font-bold text-sm uppercase tracking-wider">
+                        {getSelectedDayString()}
+                      </h4>
+                      {/* 12h / 24h switch */}
+                      <button
+                        onClick={() => setUse24h(!use24h)}
+                        className="text-[10px] text-[#A8A8B0] border border-white/10 px-2.5 py-1 rounded-full cursor-pointer hover:border-white/30 transition-all"
+                      >
+                        {use24h ? "24h" : "12h"}
+                      </button>
+                    </div>
+
+                    {/* Time slots List / Booking Form */}
+                    <AnimatePresence mode="wait">
+                      {!selectedTime ? (
+                        <motion.div
+                          key="times-list"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          className="space-y-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide"
+                        >
+                          {timeSlots.map(slot => (
+                            <button
+                              key={slot.id}
+                              onClick={() => handleTimeClick(use24h ? slot.time24 : slot.time12)}
+                              className="w-full text-center py-3 rounded-xl border border-white/5 bg-[#20242F]/30 hover:bg-[#20242F]/80 text-[#F4EEE8] text-xs font-semibold cursor-pointer tracking-wider hover:border-white/20 transition-all duration-300"
+                            >
+                              {use24h ? slot.time24 : slot.time12}
+                            </button>
+                          ))}
+                        </motion.div>
+                      ) : (
+                        <motion.form
+                          key="booking-form"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          onSubmit={handleBookMeeting}
+                          className="space-y-4"
+                        >
+                          <div className="text-xs text-[#A8A8B0] flex items-center gap-2 pb-2 border-b border-white/5">
+                            <Clock className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Booking for {selectedTime}</span>
+                          </div>
+
+                          {/* Input Name */}
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                              <User className="w-3 h-3 text-purple-400" /> Name
+                            </label>
+                            <input
+                              type="text"
+                              name="name"
+                              value={bookingDetails.name}
+                              onChange={handleInputChange}
+                              placeholder="Your full name"
+                              className="w-full bg-[#20242F]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 transition-all"
+                            />
+                            {formErrors.name && (
+                              <p className="text-rose-400 text-[10px] font-medium">{formErrors.name}</p>
+                            )}
+                          </div>
+
+                          {/* Input Email */}
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                              <Mail className="w-3 h-3 text-purple-400" /> Email
+                            </label>
+                            <input
+                              type="email"
+                              name="email"
+                              value={bookingDetails.email}
+                              onChange={handleInputChange}
+                              placeholder="you@example.com"
+                              className="w-full bg-[#20242F]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 transition-all"
+                            />
+                            {formErrors.email && (
+                              <p className="text-rose-400 text-[10px] font-medium">{formErrors.email}</p>
+                            )}
+                          </div>
+
+                          {/* Notes Textarea */}
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                              <MessageSquare className="w-3 h-3 text-purple-400" /> Notes
+                            </label>
+                            <textarea
+                              name="notes"
+                              value={bookingDetails.notes}
+                              onChange={handleInputChange}
+                              placeholder="Any details to share?"
+                              rows={2}
+                              className="w-full bg-[#20242F]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 transition-all resize-none"
+                            />
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2.5 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTime(null)}
+                              className="w-1/3 text-center py-2.5 rounded-xl border border-white/5 text-[#A8A8B0] text-xs hover:border-white/15 transition-all cursor-pointer"
+                            >
+                              Back
+                            </button>
+                            <button
+                              type="submit"
+                              className="w-2/3 text-center py-2.5 rounded-xl bg-[#F4EEE8] text-[#0B0B12] text-xs font-bold hover:bg-white transition-all cursor-pointer shadow-lg shadow-purple-500/10"
+                            >
+                              Confirm
+                            </button>
+                          </div>
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              // Booking Confirmed Screen
+              <motion.div
+                key="confirmation"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="py-12 flex flex-col items-center justify-center text-center space-y-6"
+              >
+                <div className="w-20 h-20 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center animate-bounce">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black text-[#F4EEE8] uppercase tracking-tight">
+                    Booking Confirmed!
+                  </h3>
+                  <p className="text-sm text-[#A8A8B0] max-w-[450px] mx-auto font-light leading-relaxed">
+                    Thank you <strong className="text-[#F4EEE8] font-semibold">{bookingDetails.name}</strong>, your meeting has been successfully booked for <strong className="text-[#F4EEE8] font-semibold">{getSelectedDayString()} @ {selectedTime}</strong>. A calendar invite has been sent to <strong className="text-[#F4EEE8] font-semibold">{bookingDetails.email}</strong>.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#20242F]/60 border border-white/5 flex flex-col space-y-2.5 text-xs text-[#A3A3AA] min-w-[280px]">
+                  <div className="flex justify-between">
+                    <span>Meeting Type:</span>
+                    <span className="text-[#F4EEE8]">30 Minute Strategy Call</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Platform:</span>
+                    <span className="text-[#F4EEE8]">Google Meet</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Status:</span>
+                    <span className="text-emerald-400">Scheduled</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleResetBooking}
+                  className="px-6 py-3 rounded-full border border-white/10 text-[#F4EEE8] hover:border-[#F4EEE8] transition-all text-xs font-semibold tracking-wider uppercase cursor-pointer"
+                >
+                  Schedule Another Meeting
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+      </div>
+    </section>
+  );
+}

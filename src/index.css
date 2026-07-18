@@ -1,0 +1,262 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --color-bg-dark: #0B0B12;
+  --color-card-dark: #20242F;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-text-cream: #F4EEE8;
+  --color-text-muted: #A3A3AA;
+}
+
+/* LIGHT & DARK THEME IMPLEMENTATION */
+:root {
+  --bg: #0B0B12;
+  --card-bg: #171721;
+  --card-bg-2: #20242F;
+  --text-primary: #F4EEE8;
+  --text-secondary: #A8A8B0;
+  --text-muted: #A3A3AA;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-color-strong: rgba(255, 255, 255, 0.1);
+  --btn-bg: #F4EEE8;
+  --btn-text: #0B0B12;
+}
+
+:root.light-theme {
+  --bg: #FAF8F5; /* Ultra premium off-white warm cream */
+  --card-bg: #FFFFFF; /* Pure white cards */
+  --card-bg-2: #F1ECE6; /* Warm grey-beige cards */
+  --text-primary: #0F0F16; /* Near-black primary text */
+  --text-secondary: #5C5C66; /* Elegant grey for description text */
+  --text-muted: #7E7E8A; /* Soft grey for meta information */
+  --border-color: rgba(15, 15, 22, 0.08); /* Sophisticated subtle border */
+  --border-color-strong: rgba(15, 15, 22, 0.15); /* Stronger border for buttons */
+  --btn-bg: #0F0F16; /* Black background for call-to-actions */
+  --btn-text: #FAF8F5; /* Warm white text inside call-to-actions */
+}
+
+/* Custom smooth scroll simulation */
+html, body {
+  scroll-behavior: smooth;
+  background-color: var(--bg) !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Background class replacements */
+:root.light-theme .bg-\[\#0B0B12\] {
+  background-color: var(--bg) !important;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .bg-\[\#171721\] {
+  background-color: var(--card-bg) !important;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .bg-\[\#20242F\] {
+  background-color: var(--card-bg-2) !important;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .bg-\[\#171721\]\/50 {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+:root.light-theme .bg-\[\#20242F\]\/30 {
+  background-color: rgba(241, 236, 230, 0.3) !important;
+}
+
+:root.light-theme .bg-\[\#20242F\]\/40 {
+  background-color: rgba(241, 236, 230, 0.4) !important;
+}
+
+:root.light-theme .bg-\[\#20242F\]\/60 {
+  background-color: rgba(241, 236, 230, 0.6) !important;
+}
+
+:root.light-theme .bg-\[\#20242F\]\/80 {
+  background-color: rgba(241, 236, 230, 0.8) !important;
+}
+
+/* Text color class replacements */
+:root.light-theme .text-\[\#F4EEE8\] {
+  color: var(--text-primary) !important;
+  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .text-\[\#F4EEE8\]\/90 {
+  color: rgba(15, 15, 22, 0.9) !important;
+}
+
+:root.light-theme .text-\[\#A8A8B0\] {
+  color: var(--text-secondary) !important;
+  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .text-\[\#A3A3AA\] {
+  color: var(--text-muted) !important;
+  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .text-white\/30 {
+  color: rgba(15, 15, 22, 0.35) !important;
+}
+
+:root.light-theme .text-white\/20 {
+  color: rgba(15, 15, 22, 0.25) !important;
+}
+
+/* Border overrides */
+:root.light-theme .border-white\/5 {
+  border-color: var(--border-color) !important;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .border-white\/10 {
+  border-color: var(--border-color-strong) !important;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root.light-theme .border-white\/15 {
+  border-color: var(--border-color-strong) !important;
+}
+
+:root.light-theme .border-white\/30 {
+  border-color: rgba(15, 15, 22, 0.3) !important;
+}
+
+:root.light-theme .border-white\/40 {
+  border-color: rgba(15, 15, 22, 0.4) !important;
+}
+
+/* Button & interactive overrides */
+:root.light-theme .bg-\[\#F4EEE8\] {
+  background-color: var(--btn-bg) !important;
+  color: var(--btn-text) !important;
+}
+
+:root.light-theme .text-\[\#0B0B12\] {
+  color: var(--btn-text) !important;
+}
+
+:root.light-theme .hover\:bg-\[\#F4EEE8\]:hover {
+  background-color: var(--btn-bg) !important;
+  color: var(--btn-text) !important;
+}
+
+:root.light-theme .hover\:text-\[\#0B0B12\]:hover {
+  color: var(--btn-text) !important;
+}
+
+:root.light-theme .hover\:border-\[\#F4EEE8\]:hover {
+  border-color: var(--btn-bg) !important;
+}
+
+:root.light-theme .decoration-white\/30 {
+  text-decoration-color: rgba(15, 15, 22, 0.3) !important;
+}
+
+:root.light-theme .decoration-white\/40 {
+  text-decoration-color: rgba(15, 15, 22, 0.4) !important;
+}
+
+:root.light-theme .group-hover\:border-white\/15:hover,
+:root.light-theme .group:hover .group-hover\:border-white\/15 {
+  border-color: var(--border-color-strong) !important;
+}
+
+:root.light-theme .group-hover\:text-white:hover,
+:root.light-theme .group:hover .group-hover\:text-white {
+  color: var(--text-primary) !important;
+}
+
+/* Theme Toggle styles override for light-theme */
+:root.light-theme .bg-white\/5 {
+  background-color: rgba(15, 15, 22, 0.05) !important;
+}
+
+:root.light-theme .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 15, 22, 0.09) !important;
+}
+
+/* Form elements styling in Light Mode */
+:root.light-theme input,
+:root.light-theme textarea {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color-strong) !important;
+}
+
+:root.light-theme input::placeholder,
+:root.light-theme textarea::placeholder {
+  color: #8C8C99 !important;
+}
+
+/* Ambient glows */
+:root.light-theme .bg-\[\#1c142c\],
+:root.light-theme .bg-\[\#3b3b4f\],
+:root.light-theme .bg-\[\#1e1a3a\] {
+  background-color: rgba(127, 127, 229, 0.04) !important;
+}
+
+:root.light-theme .bg-\[radial-gradient\(circle\,rgba\(255\,255\,255\,0\.06\)_0\%\,transparent_70\%\)\] {
+  background-image: radial-gradient(circle, rgba(15, 15, 22, 0.03) 0%, transparent 70%) !important;
+}
+
+/* AdminGateway text fallback */
+:root.light-theme .text-white\/20 {
+  color: rgba(15, 15, 22, 0.3) !important;
+}
+
+/* Calendar selected date contrast */
+:root.light-theme .bg-\[\#F4EEE8\]\.text-\[\#0B0B12\] {
+  background-color: var(--btn-bg) !important;
+  color: var(--btn-text) !important;
+}
+
+/* Ensure timeline line stays visible and clean */
+:root.light-theme .before\:bg-white\/10::before {
+  background-color: rgba(15, 15, 22, 0.1) !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0B12;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Custom utility to hide scrollbars on horizontal rows */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Film grain noise effect (3% opacity) */
+.noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  content: "";
+  opacity: 0.03;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}

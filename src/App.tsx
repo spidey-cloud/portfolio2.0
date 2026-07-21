@@ -8,70 +8,75 @@ import Projects from "./components/Projects";
 import Testimonials from "./components/Testimonials";
 import BookCall from "./components/BookCall";
 import Footer from "./components/Footer";
-import AdminPanel from "./components/AdminPanel";
+import AdminPage from "./pages/AdminPage";
 
 export default function App() {
-  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
+  const [route, setRoute] = useState<"portfolio" | "admin">(
+    window.location.hash === "#/admin" ? "admin" : "portfolio",
+  );
 
   useEffect(() => {
-    // Listen for Ctrl+Shift+A shortcut to open the admin panel securely
+    const handleHashChange = () => {
+      setRoute(window.location.hash === "#/admin" ? "admin" : "portfolio");
+    };
+    window.addEventListener("hashchange", handleHashChange);
+
+    // Ctrl+Shift+A shortcut navigates to admin page
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") {
         e.preventDefault();
-        setIsAdminOpen(prev => !prev);
+        window.location.hash = "#/admin";
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
+
     return () => {
+      window.removeEventListener("hashchange", handleHashChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
   const handleDataChange = () => {
-    // Fire event to notify all components to re-sync data
     window.dispatchEvent(new Event("portfolio-data-updated"));
   };
 
+  // Admin page — full separate page, no portfolio chrome
+  if (route === "admin") {
+    return (
+      <div
+        className="relative min-h-screen text-[#F4EEE8] font-sans antialiased overflow-x-hidden"
+        style={{ background: "var(--page-bg)" }}
+      >
+        <div className="noise-overlay" />
+        <AdminPage onDataChange={handleDataChange} />
+      </div>
+    );
+  }
+
+  // Main portfolio
   return (
-    <div className="relative min-h-screen bg-[#0B0B12] text-[#F4EEE8] font-sans antialiased overflow-x-hidden selection:bg-[#F4EEE8] selection:text-[#0B0B12]">
-      {/* Absolute Film Grain Noise Overlay (3% Opacity, Globally Applied) */}
+    <div
+      className="relative min-h-screen text-[#F4EEE8] font-sans antialiased overflow-x-hidden selection:bg-[#F4EEE8] selection:text-[#0B0B12]"
+      style={{ background: "var(--page-bg)" }}
+    >
       <div className="noise-overlay" />
 
-      {/* Main Structural Layout */}
       <Navbar />
-      
+
       <main className="relative z-10 w-full flex flex-col">
-        {/* Hero Section (100vh) */}
         <Hero />
-
-        {/* About Section */}
         <About />
-
-        {/* Skills Section */}
         <Skills />
-
-        {/* Recommended Songs Horizontal Gallery */}
         <MusicSection />
-
-        {/* Projects Alternating Cards Section */}
         <Projects />
-
-        {/* Testimonials Grid Section */}
         <Testimonials />
-
-        {/* Book A Call (Cal.com Mockup Calendar) */}
         <BookCall />
       </main>
 
-      {/* Massive LET'S TALK Footer */}
-      <Footer onOpenAdmin={() => setIsAdminOpen(true)} />
-
-      {/* Admin Panel Overlay */}
-      <AdminPanel 
-        isOpen={isAdminOpen} 
-        onClose={() => setIsAdminOpen(false)} 
-        onDataChange={handleDataChange} 
+      <Footer
+        onOpenAdmin={() => {
+          window.location.hash = "#/admin";
+        }}
       />
     </div>
   );

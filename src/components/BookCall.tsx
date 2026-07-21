@@ -1,7 +1,24 @@
 import { useState, ChangeEvent, FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Calendar, Clock, Video, Globe, ChevronLeft, ChevronRight, CheckCircle2, User, Mail, MessageSquare } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Video,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  User,
+  Mail,
+  MessageSquare,
+} from "lucide-react";
 import { trackActivity } from "../lib/storage";
+import {
+  validateShortText,
+  validateEmail,
+  validateLongText,
+  sanitizeText,
+} from "../lib/validate";
 
 export default function BookCall() {
   const [selectedDate, setSelectedDate] = useState<number>(1);
@@ -11,14 +28,14 @@ export default function BookCall() {
   const [bookingDetails, setBookingDetails] = useState({
     name: "",
     email: "",
-    notes: ""
+    notes: "",
   });
   const [formErrors, setFormErrors] = useState({ name: "", email: "" });
 
   const daysInAugust = Array.from({ length: 31 }, (_, i) => i + 1);
-  
+
   // August 2026 starts on a Saturday, so there are 5 blank cells in the first week
-  const blankDays = 5; 
+  const blankDays = 5;
 
   const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -27,7 +44,7 @@ export default function BookCall() {
     { id: "2", time12: "11:30 AM", time24: "11:30" },
     { id: "3", time12: "02:00 PM", time24: "14:00" },
     { id: "4", time12: "03:30 PM", time24: "15:30" },
-    { id: "5", time12: "05:00 PM", time24: "17:00" }
+    { id: "5", time12: "05:00 PM", time24: "17:00" },
   ];
 
   const handleDateClick = (day: number) => {
@@ -37,41 +54,48 @@ export default function BookCall() {
 
   const handleTimeClick = (time: string) => {
     setSelectedTime(time);
-    trackActivity("book_call_attempt", `Selected slot ${time} for August ${selectedDate}, 2026`);
+    trackActivity(
+      "book_call_attempt",
+      `Selected slot ${time} for August ${selectedDate}, 2026`,
+    );
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
-    setBookingDetails(prev => ({ ...prev, [name]: value }));
-    setFormErrors(prev => ({ ...prev, [name]: "" }));
+    // Enforce per-field length limits while typing
+    const limits: Record<string, number> = { name: 80, email: 100, notes: 400 };
+    const limited = value.slice(0, limits[name] ?? 200);
+    setBookingDetails((prev) => ({ ...prev, [name]: limited }));
+    setFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleBookMeeting = (e: FormEvent) => {
     e.preventDefault();
-    let hasErrors = false;
     const errors = { name: "", email: "" };
 
-    if (!bookingDetails.name.trim()) {
-      errors.name = "Name is required";
-      hasErrors = true;
-    }
-    if (!bookingDetails.email.trim()) {
-      errors.email = "Email is required";
-      hasErrors = true;
-    } else if (!/\S+@\S+\.\S+/.test(bookingDetails.email)) {
-      errors.email = "Please enter a valid email";
-      hasErrors = true;
-    }
+    const nameV = validateShortText(bookingDetails.name);
+    const emailV = validateEmail(bookingDetails.email);
+    const notesV = validateLongText(bookingDetails.notes);
 
-    if (hasErrors) {
+    if (!nameV.ok) errors.name = nameV.error;
+    if (!emailV.ok) errors.email = emailV.error;
+
+    if (!nameV.ok || !emailV.ok) {
       setFormErrors(errors);
       return;
     }
 
+    // Sanitize notes before storing in activity log
+    const safeNotes = notesV.ok
+      ? notesV.value
+      : sanitizeText(bookingDetails.notes).slice(0, 400);
+
     setIsBookingConfirmed(true);
     trackActivity(
       "book_call_success",
-      `Meeting booked by ${bookingDetails.name} (${bookingDetails.email}) for ${getSelectedDayString()} @ ${selectedTime}`
+      `Meeting booked by ${nameV.value} (${emailV.value}) for ${getSelectedDayString()} @ ${selectedTime}${safeNotes ? ` — ${safeNotes.slice(0, 80)}` : ""}`,
     );
   };
 
@@ -95,7 +119,6 @@ export default function BookCall() {
       className="relative w-full py-[160px] bg-[#0B0B12] px-6 md:px-12 overflow-hidden border-b border-white/5"
     >
       <div className="max-w-[1600px] mx-auto">
-        
         {/* Section Header */}
         <div className="text-center space-y-6 mb-16">
           <motion.h2
@@ -105,7 +128,7 @@ export default function BookCall() {
             transition={{ duration: 0.8 }}
             className="text-[#F4EEE8] font-black tracking-[-0.03em] uppercase leading-none text-4xl sm:text-5xl md:text-6xl"
           >
-            PARTNER WITH US. LAUNCH FAST.
+            CONNECT WITH ME. BUILD FAST.
           </motion.h2>
 
           <motion.p
@@ -115,7 +138,8 @@ export default function BookCall() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="text-[#A8A8B0] text-base md:text-lg font-light max-w-[750px] mx-auto leading-relaxed"
           >
-            I run <strong className="text-[#F4EEE8] font-medium">Zenith Studio</strong>, an AI-powered agency helping founders go from zero to launch — fast. We're gifting 4 months of post-launch support to the first 10 signups.
+            I am available for freelance work and full-time opportunities. Book
+            a strategy call to discuss your next big idea.
           </motion.p>
         </div>
 
@@ -130,18 +154,23 @@ export default function BookCall() {
           <AnimatePresence mode="wait">
             {!isBookingConfirmed ? (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                
                 {/* Left Panel: Event Info */}
                 <div className="lg:col-span-4 lg:border-r lg:border-white/5 lg:pr-10 space-y-6 flex flex-col justify-between">
                   <div className="space-y-6">
                     {/* Header Agency Brand info */}
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-                        <span className="text-purple-400 text-xs font-black">ZS</span>
+                        <span className="text-purple-400 text-xs font-black">
+                          RKD
+                        </span>
                       </div>
                       <div>
-                        <h4 className="text-[#F4EEE8] font-bold text-sm tracking-wide">Zenith Studio</h4>
-                        <p className="text-[#A3A3AA] text-[11px] font-light">Web development</p>
+                        <h4 className="text-[#F4EEE8] font-bold text-sm tracking-wide">
+                          ROHON KUMAR DUTTA
+                        </h4>
+                        <p className="text-[#A3A3AA] text-[11px] font-light">
+                          Web development
+                        </p>
                       </div>
                     </div>
 
@@ -167,13 +196,6 @@ export default function BookCall() {
                     </div>
 
                     {/* Promo Info */}
-                    <div className="text-xs text-[#A3A3AA] leading-relaxed font-light pt-6 border-t border-white/5 space-y-2">
-                      <p className="font-semibold text-[#F4EEE8]">Exclusive founder offer:</p>
-                      <ul className="list-disc pl-4 space-y-1">
-                        <li>3 months FREE maintenance for the first 10 clients.</li>
-                        <li>We don't just build websites. We launch dreams. Let's build yours.</li>
-                      </ul>
-                    </div>
                   </div>
 
                   {/* Powered By Branding */}
@@ -200,8 +222,11 @@ export default function BookCall() {
 
                   {/* Weekdays */}
                   <div className="grid grid-cols-7 gap-2 text-center">
-                    {weekDays.map(d => (
-                      <span key={d} className="text-[10px] text-white/30 font-bold tracking-wider">
+                    {weekDays.map((d) => (
+                      <span
+                        key={d}
+                        className="text-[10px] text-white/30 font-bold tracking-wider"
+                      >
                         {d}
                       </span>
                     ))}
@@ -215,7 +240,7 @@ export default function BookCall() {
                     ))}
 
                     {/* Day numbers */}
-                    {daysInAugust.map(day => {
+                    {daysInAugust.map((day) => {
                       const isSelected = selectedDate === day;
                       return (
                         <button
@@ -229,7 +254,9 @@ export default function BookCall() {
                         >
                           {day}
                           {/* Green indicator for custom offer availability */}
-                          <span className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isSelected ? "bg-purple-600" : "bg-emerald-400"}`} />
+                          <span
+                            className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isSelected ? "bg-purple-600" : "bg-emerald-400"}`}
+                          />
                         </button>
                       );
                     })}
@@ -262,10 +289,14 @@ export default function BookCall() {
                           exit={{ opacity: 0, x: -20 }}
                           className="space-y-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide"
                         >
-                          {timeSlots.map(slot => (
+                          {timeSlots.map((slot) => (
                             <button
                               key={slot.id}
-                              onClick={() => handleTimeClick(use24h ? slot.time24 : slot.time12)}
+                              onClick={() =>
+                                handleTimeClick(
+                                  use24h ? slot.time24 : slot.time12,
+                                )
+                              }
                               className="w-full text-center py-3 rounded-xl border border-white/5 bg-[#20242F]/30 hover:bg-[#20242F]/80 text-[#F4EEE8] text-xs font-semibold cursor-pointer tracking-wider hover:border-white/20 transition-all duration-300"
                             >
                               {use24h ? slot.time24 : slot.time12}
@@ -300,7 +331,9 @@ export default function BookCall() {
                               className="w-full bg-[#20242F]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 transition-all"
                             />
                             {formErrors.name && (
-                              <p className="text-rose-400 text-[10px] font-medium">{formErrors.name}</p>
+                              <p className="text-rose-400 text-[10px] font-medium">
+                                {formErrors.name}
+                              </p>
                             )}
                           </div>
 
@@ -318,14 +351,17 @@ export default function BookCall() {
                               className="w-full bg-[#20242F]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 transition-all"
                             />
                             {formErrors.email && (
-                              <p className="text-rose-400 text-[10px] font-medium">{formErrors.email}</p>
+                              <p className="text-rose-400 text-[10px] font-medium">
+                                {formErrors.email}
+                              </p>
                             )}
                           </div>
 
                           {/* Notes Textarea */}
                           <div className="space-y-1.5">
                             <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
-                              <MessageSquare className="w-3 h-3 text-purple-400" /> Notes
+                              <MessageSquare className="w-3 h-3 text-purple-400" />{" "}
+                              Notes
                             </label>
                             <textarea
                               name="notes"
@@ -358,7 +394,6 @@ export default function BookCall() {
                     </AnimatePresence>
                   </div>
                 </div>
-
               </div>
             ) : (
               // Booking Confirmed Screen
@@ -378,14 +413,28 @@ export default function BookCall() {
                     Booking Confirmed!
                   </h3>
                   <p className="text-sm text-[#A8A8B0] max-w-[450px] mx-auto font-light leading-relaxed">
-                    Thank you <strong className="text-[#F4EEE8] font-semibold">{bookingDetails.name}</strong>, your meeting has been successfully booked for <strong className="text-[#F4EEE8] font-semibold">{getSelectedDayString()} @ {selectedTime}</strong>. A calendar invite has been sent to <strong className="text-[#F4EEE8] font-semibold">{bookingDetails.email}</strong>.
+                    Thank you{" "}
+                    <strong className="text-[#F4EEE8] font-semibold">
+                      {bookingDetails.name}
+                    </strong>
+                    , your meeting has been successfully booked for{" "}
+                    <strong className="text-[#F4EEE8] font-semibold">
+                      {getSelectedDayString()} @ {selectedTime}
+                    </strong>
+                    . A calendar invite has been sent to{" "}
+                    <strong className="text-[#F4EEE8] font-semibold">
+                      {bookingDetails.email}
+                    </strong>
+                    .
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-[#20242F]/60 border border-white/5 flex flex-col space-y-2.5 text-xs text-[#A3A3AA] min-w-[280px]">
                   <div className="flex justify-between">
                     <span>Meeting Type:</span>
-                    <span className="text-[#F4EEE8]">30 Minute Strategy Call</span>
+                    <span className="text-[#F4EEE8]">
+                      30 Minute Strategy Call
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Platform:</span>
@@ -407,7 +456,6 @@ export default function BookCall() {
             )}
           </AnimatePresence>
         </motion.div>
-
       </div>
     </section>
   );

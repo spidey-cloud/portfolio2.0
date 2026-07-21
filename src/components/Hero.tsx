@@ -1,10 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { loadAvatar, trackActivity } from "../lib/storage";
 
 export default function Hero() {
   const [isHovered, setIsHovered] = useState(false);
-  const [avatarData, setAvatarData] = useState({ url: "/src/assets/images/profile_avatar_1784406141109.jpg", statusText: "I'm Open to work" });
+  const [avatarData, setAvatarData] = useState({
+    url: "/src/assets/images/profile_avatar_1784406141109.jpg",
+    statusText: "I'm Open to work",
+  });
+  const heroRef = useRef<HTMLElement | null>(null);
+  const latestPointer = useRef({ x: 0, y: 0 });
+  const rafId = useRef<number | null>(null);
 
   // Motion values for cursor parallax shift
   const mouseX = useMotionValue(0);
@@ -35,18 +41,36 @@ export default function Hero() {
     };
     window.addEventListener("portfolio-data-updated", handleSync);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const { innerWidth, innerHeight } = window;
-      // Normalize to [-0.5, 0.5]
-      const x = e.clientX / innerWidth - 0.5;
-      const y = e.clientY / innerHeight - 0.5;
-      mouseX.set(x);
-      mouseY.set(y);
+    const supportsFinePointer =
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer:fine)").matches;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      latestPointer.current = {
+        x: e.clientX / window.innerWidth - 0.5,
+        y: e.clientY / window.innerHeight - 0.5,
+      };
+
+      if (rafId.current !== null) return;
+
+      rafId.current = window.requestAnimationFrame(() => {
+        mouseX.set(latestPointer.current.x);
+        mouseY.set(latestPointer.current.y);
+        rafId.current = null;
+      });
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
+    if (supportsFinePointer && heroRef.current) {
+      heroRef.current.addEventListener("pointermove", handlePointerMove);
+    }
+
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
+      if (supportsFinePointer && heroRef.current) {
+        heroRef.current.removeEventListener("pointermove", handlePointerMove);
+      }
+      if (rafId.current !== null) {
+        window.cancelAnimationFrame(rafId.current);
+      }
       window.removeEventListener("portfolio-data-updated", handleSync);
     };
   }, [mouseX, mouseY]);
@@ -54,15 +78,19 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      className="relative w-full min-h-screen bg-[#0B0B12] flex flex-col justify-between px-6 md:px-12 pt-[120px] pb-12 overflow-hidden select-none animate-fade-in"
+      ref={heroRef}
+      className="relative w-full min-h-screen bg-transparent flex flex-col justify-between px-6 md:px-12 pt-[120px] pb-12 overflow-hidden select-none animate-fade-in"
     >
-      {/* Background spotlight matching the design template */}
-      <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center">
-        <div className="w-[80vw] h-[80vw] max-w-[800px] max-h-[800px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.06)_0%,transparent_70%)] blur-[20px]" />
+      {/* Background artwork matching the premium light blue hero field */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-x-0 top-0 h-[55vh] bg-[radial-gradient(circle_at_top,rgba(217,232,247,0.96)_0%,rgba(183,210,234,0.7)_35%,transparent_80%)]" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-[80vw] h-[80vw] max-w-[780px] max-h-[780px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,transparent_70%)] blur-[28px]" />
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 my-auto">
-        {/* Massive Text: SYED MOINUDDIN */}
+        {/* Massive Text: ROHON KUMAR DUTTA */}
         <div className="w-full flex flex-col items-center justify-center leading-[0.8] select-none relative">
           <motion.h1
             initial={{ y: 80, opacity: 0 }}
@@ -71,7 +99,7 @@ export default function Hero() {
             className="text-[#F4EEE8] font-black text-center uppercase tracking-[-0.05em] leading-[0.85] select-none"
             style={{ fontSize: "clamp(64px, 12.5vw, 160px)" }}
           >
-            Syed
+            ROHON KUMAR
           </motion.h1>
 
           {/* Spacer to allow the absolute profile image to fit elegantly */}
@@ -84,7 +112,7 @@ export default function Hero() {
             className="text-[#F4EEE8] font-black text-center uppercase tracking-[-0.05em] leading-[0.85] select-none"
             style={{ fontSize: "clamp(64px, 12.5vw, 160px)" }}
           >
-            Moinuddin
+            DUTTA
           </motion.h1>
         </div>
 
@@ -97,7 +125,11 @@ export default function Hero() {
           onClick={() => setIsHovered(!isHovered)}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 1.2, delay: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
+          transition={{
+            duration: 1.2,
+            delay: 0.2,
+            ease: [0.34, 1.56, 0.64, 1],
+          }}
         >
           {/* Avatar frame (rounded-3xl (24px) for geometric editorial feel) */}
           <div
@@ -107,9 +139,11 @@ export default function Hero() {
           >
             <img
               src={avatarData.url}
-              alt="Syed Moinuddin Avatar"
+              alt="Rohon kumar Dutta Avatar"
               className={`w-full h-full object-cover transition-all duration-700 ease-out ${
-                isHovered ? "brightness-105 scale-105 contrast-105" : "grayscale-[20%] brightness-95"
+                isHovered
+                  ? "brightness-105 scale-105 contrast-105"
+                  : "grayscale-[20%] brightness-95"
               }`}
               referrerPolicy="no-referrer"
             />
@@ -123,7 +157,7 @@ export default function Hero() {
             transition={{
               duration: 0.6,
               delay: 0.8,
-              ease: [0.34, 1.56, 0.64, 1]
+              ease: [0.34, 1.56, 0.64, 1],
             }}
             className={`absolute -top-12 -right-[30px] bg-[#F4EEE8] text-black px-4 md:px-5 py-2.5 rounded-full shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] flex items-center gap-2 border border-black/5 whitespace-nowrap transition-transform duration-300 ${
               isHovered ? "scale-105" : ""
@@ -150,18 +184,20 @@ export default function Hero() {
           transition={{ duration: 1, delay: 0.4 }}
           className="max-w-[340px] text-left flex flex-col space-y-2"
         >
-          <p className="text-[11px] text-[#A8A8B0] uppercase tracking-[0.1em] font-semibold">Based in Bangalore, India</p>
+          <p className="text-[11px] text-[#A8A8B0] uppercase tracking-[0.1em] font-semibold">
+            Based in Kalyani, India
+          </p>
           <p className="text-sm md:text-base text-[#F4EEE8] font-light leading-relaxed">
-            I currently work as a Frontend Engineer at{" "}
+            B.Tech (IT) student at{" "}
             <a
-              href="https://virallens.com"
+              href="https://www.jiscollege.ac.in"
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-4 decoration-white/40 hover:decoration-white transition-all font-medium"
             >
-              Virallens
+              JIS College of Engineering
             </a>
-            , building beautiful digital products.
+            , building full-stack web and Android applications.
           </p>
         </motion.div>
 
@@ -172,9 +208,12 @@ export default function Hero() {
           transition={{ duration: 1, delay: 0.4 }}
           className="max-w-[340px] md:justify-self-end text-left md:text-right flex flex-col space-y-2"
         >
-          <p className="text-[11px] text-[#A8A8B0] uppercase tracking-[0.1em] font-semibold">Expertise</p>
+          <p className="text-[11px] text-[#A8A8B0] uppercase tracking-[0.1em] font-semibold">
+            Expertise
+          </p>
           <p className="text-sm md:text-base text-[#F4EEE8] font-light leading-relaxed">
-            Frontend Engineer &<br />Interaction Designer
+            Full Stack Developer &<br />
+            Android Engineer
           </p>
         </motion.div>
       </div>

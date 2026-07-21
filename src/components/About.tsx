@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { loadSkills, loadWorkUpdates, loadResume, trackActivity } from "../lib/storage";
-import { FileText, Calendar, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink } from "lucide-react";
 
 export default function About() {
   const [skills, setSkills] = useState<any[]>([]);
@@ -17,7 +17,7 @@ export default function About() {
 
   // Handle resume tracking activity
   const handleDownloadResume = () => {
-    trackActivity("resume_download", `File: ${resume.fileName}`);
+    trackActivity("resume_download", `Viewed: ${resume.fileName}`);
   };
 
   const containerVariants = {
@@ -60,11 +60,6 @@ export default function About() {
           className="mb-[80px]"
         >
           <h2 className="text-[#F4EEE8] font-black tracking-[-0.04em] uppercase leading-[0.9] text-[40px] sm:text-[60px] md:text-[80px] lg:text-[96px] max-w-[1300px]">
-            I BUILD STARTUPS,
-            <br />
-            ACCELERATE GROWTH,
-            <br />
-            CREATE EMPIRES.
           </h2>
         </motion.div>
 
@@ -82,21 +77,21 @@ export default function About() {
               variants={itemVariants}
               className="text-[#F4EEE8] text-lg md:text-[22px] font-light leading-relaxed"
             >
-              I specialize in crafting high-converting landing pages and websites for SaaS, Web3 & AI startups. I'm passionate about building software that makes a difference.
+              I'm a full-stack developer and Android engineer with experience building AI-powered web apps and offline-first mobile applications.
             </motion.p>
 
             <motion.p
               variants={itemVariants}
               className="text-[#A8A8B0] text-lg md:text-[22px] font-light leading-relaxed"
             >
-              Beyond my work as a frontend developer, I'm also very active in gaming, regularly playing PUBG, Valorant, and other PC games, combining my passion for technology with competitive gaming experiences.
+              Currently pursuing B.Tech in IT at JIS College of Engineering, Kalyani. I previously completed a Diploma in CST with a CGPA of 8.4, and interned as a Python Django developer at Euphoria Genx.
             </motion.p>
 
             <motion.p
               variants={itemVariants}
               className="text-[#A8A8B0] text-lg md:text-[22px] font-light leading-relaxed"
             >
-              When I’m away from the keyboard, I’m usually diving into anime marathons or spending time with friends, recharging for the next big idea.
+              When I'm away from the keyboard, I enjoy exploring new ideas, diving into anime, and spending time with friends.
             </motion.p>
 
             {/* Dynamic Interactive Resume Button */}
@@ -109,7 +104,7 @@ export default function About() {
                 className="inline-flex items-center gap-3 bg-[#F4EEE8] text-[#0B0B12] px-6 py-4 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.03] hover:bg-white cursor-pointer shadow-lg hover:shadow-white/10"
               >
                 <FileText className="w-4 h-4 text-[#0B0B12]" />
-                Download Resume ({resume.fileName || "PDF"})
+                View Resume ({resume.fileName || "PDF"})
               </a>
               <p className="text-[10px] text-[#A8A8B0] font-semibold tracking-widest uppercase mt-3 pl-2">
                 Last updated: {resume.updatedAt}
@@ -120,14 +115,14 @@ export default function About() {
             {workUpdates.length > 0 && (
               <motion.div variants={itemVariants} className="pt-10 space-y-6">
                 <h3 className="text-xs font-black tracking-[0.25em] uppercase text-[#F4EEE8]">
-                  Career Timeline Updates
+                  Career Timeline
                 </h3>
                 <div className="space-y-6 pl-1 border-l border-white/10">
                   {workUpdates.map((work: any) => (
                     <div key={work.id} className="relative pl-6 space-y-1.5 group">
                       {/* Timeline dot */}
                       <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-purple-400 border border-[#0B0B12] group-hover:scale-125 transition-transform" />
-                      
+
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <h4 className="text-sm font-bold uppercase text-[#F4EEE8] tracking-wider">
                           {work.role}

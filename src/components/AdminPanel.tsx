@@ -1,43 +1,108 @@
 import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  Lock, X, Edit, Trash2, Plus, Check, Eye, Trash, 
-  Settings, FolderKanban, Award, Image, FileText, 
-  TrendingUp, RefreshCw, BarChart2, Activity, ShieldCheck, LogOut, ArrowRight
+import {
+  Lock,
+  X,
+  Edit,
+  Trash2,
+  Plus,
+  Check,
+  Eye,
+  Trash,
+  Settings,
+  FolderKanban,
+  Award,
+  Image,
+  FileText,
+  TrendingUp,
+  RefreshCw,
+  BarChart2,
+  Activity,
+  ShieldCheck,
+  LogOut,
+  ArrowRight,
 } from "lucide-react";
-import { 
-  loadProjects, saveProjects, 
-  loadSkills, saveSkills, 
-  loadSongs, saveSongs, 
-  loadWorkUpdates, saveWorkUpdates, 
-  loadResume, saveResume, 
-  loadAvatar, saveAvatar, 
-  loadActivityLogs, clearActivities
+import {
+  loadProjects,
+  saveProjects,
+  loadSkills,
+  saveSkills,
+  loadSongs,
+  saveSongs,
+  loadWorkUpdates,
+  saveWorkUpdates,
+  loadResume,
+  saveResume,
+  loadAvatar,
+  saveAvatar,
+  loadActivityLogs,
+  clearActivities,
 } from "../lib/storage";
-import { ActivityLog, Project, SkillCategory, Song, WorkUpdate } from "../types";
+import {
+  verifyTOTP,
+  generateQRCodeDataURL,
+  isTOTPSetup,
+  markTOTPSetupComplete,
+} from "../lib/totp";
+import {
+  validateShortText,
+  validateLongText,
+  validateUrl,
+  validateOptionalShortText,
+} from "../lib/validate";
+import {
+  ActivityLog,
+  Project,
+  SkillCategory,
+  Song,
+  WorkUpdate,
+} from "../types";
 
 // Password for simple demo authentication
 const ADMIN_PASSWORD = "admin";
 
 interface AdminPanelProps {
   isOpen: boolean;
+  isPage?: boolean;
   onClose: () => void;
   onDataChange: () => void; // Notify parent to refresh lists
 }
 
-export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanelProps) {
+export default function AdminPanel({
+  isOpen,
+  isPage = false,
+  onClose,
+  onDataChange,
+}: AdminPanelProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [password, setPassword] = useState<string>("");
   const [authError, setAuthError] = useState<string>("");
 
-  const [activeTab, setActiveTab] = useState<"projects" | "skills" | "work" | "photos" | "analytics">("analytics");
+  // Authentication step state: idle -> otp -> authenticated
+  const [authStep, setAuthStep] = useState<"idle" | "otp" | "authenticated">(
+    "idle",
+  );
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  // Brute-force protection
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  const [lockUntil, setLockUntil] = useState<number | null>(null);
+
+  const [activeTab, setActiveTab] = useState<
+    "projects" | "skills" | "work" | "photos" | "analytics"
+  >("analytics");
 
   // Dynamic state
   const [projects, setProjects] = useState<Project[]>([]);
   const [skills, setSkills] = useState<SkillCategory[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [workUpdates, setWorkUpdates] = useState<WorkUpdate[]>([]);
-  const [resume, setResume] = useState({ url: "", fileName: "", updatedAt: "" });
+  const [resume, setResume] = useState({
+    url: "",
+    fileName: "",
+    updatedAt: "",
+  });
   const [avatar, setAvatar] = useState({ url: "", statusText: "" });
   const [logs, setLogs] = useState<ActivityLog[]>([]);
 
@@ -49,12 +114,14 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     image: "",
     techStack: [],
     githubUrl: "",
-    liveUrl: ""
+    liveUrl: "",
   });
   const [techInput, setTechInput] = useState<string>("");
 
   // Skills state
-  const [newSkillText, setNewSkillText] = useState<{ [catId: string]: string }>({});
+  const [newSkillText, setNewSkillText] = useState<{ [catId: string]: string }>(
+    {},
+  );
 
   // Song state
   const [editingSong, setEditingSong] = useState<Song | null>(null);
@@ -62,7 +129,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     title: "",
     artist: "",
     coverUrl: "",
-    spotifyUrl: ""
+    spotifyUrl: "",
   });
 
   // Work update state
@@ -72,7 +139,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     company: "",
     companyUrl: "",
     duration: "",
-    description: ""
+    description: "",
   });
 
   // File upload state / feedback
@@ -91,19 +158,76 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     }
   }, [isOpen]);
 
-  const handleLogin = (e: FormEvent) => {
+  const LOCK_DURATION = 15 * 60 * 1000; // 15 minutes
+
+  const isLocked = () => lockUntil !== null && Date.now() < lockUntil;
+
+  const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isLocked()) {
+      setAuthError("Too many failed attempts. Try again later.");
+      return;
+    }
+
     if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
       setAuthError("");
+      setAuthStep("otp");
+      // If TOTP hasn't been setup before, generate a QR to show
+      if (!isTOTPSetup()) {
+        try {
+          const qr = await generateQRCodeDataURL();
+          setQrDataUrl(qr);
+        } catch (err) {
+          // ignore QR generation failure
+        }
+      }
     } else {
-      setAuthError("Incorrect password. Please try again.");
+      const next = failedAttempts + 1;
+      setFailedAttempts(next);
+      if (next >= 5) {
+        const until = Date.now() + LOCK_DURATION;
+        setLockUntil(until);
+        setAuthError("Too many failed attempts. Locked for 15 minutes.");
+      } else {
+        setAuthError("Incorrect password. Please try again.");
+      }
+    }
+  };
+
+  const handleVerifyOtp = (e: FormEvent) => {
+    e.preventDefault();
+    if (isLocked()) {
+      setAuthError("Too many failed attempts. Try again later.");
+      return;
+    }
+    const ok = verifyTOTP(otpCode);
+    if (ok) {
+      setIsAuthenticated(true);
+      setAuthStep("authenticated");
+      setAuthError("");
+      setFailedAttempts(0);
+      setLockUntil(null);
+      if (!isTOTPSetup()) {
+        markTOTPSetupComplete();
+        setQrDataUrl("");
+      }
+    } else {
+      const next = failedAttempts + 1;
+      setFailedAttempts(next);
+      if (next >= 5) {
+        setLockUntil(Date.now() + LOCK_DURATION);
+        setAuthError("Too many failed attempts. Locked for 15 minutes.");
+      } else {
+        setAuthError("Invalid OTP code. Please try again.");
+      }
     }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setPassword("");
+    setAuthStep("idle");
+    setOtpCode("");
   };
 
   // 1. PROJECT HANDLERS
@@ -113,21 +237,54 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
     if (editingProject) {
       // Update existing
-      updatedProjects = updatedProjects.map(p => 
-        p.id === editingProject.id ? { ...editingProject } : p
+      updatedProjects = updatedProjects.map((p) =>
+        p.id === editingProject.id ? { ...editingProject } : p,
       );
       setEditingProject(null);
     } else {
-      // Add new
-      if (!newProject.title || !newProject.description) return;
+      // Add new with validation
+      const titleV = validateShortText(newProject.title || "");
+      const descV = validateLongText(newProject.description || "", true);
+      if (!titleV.ok) {
+        setUploadStatus(titleV.error);
+        return;
+      }
+      if (!descV.ok) {
+        setUploadStatus(descV.error);
+        return;
+      }
+
+      // image may be a data URL or an https url
+      const imageVal = newProject.image || "";
+      if (
+        imageVal &&
+        !imageVal.startsWith("data:") &&
+        !validateUrl(imageVal).ok
+      ) {
+        setUploadStatus(
+          "Cover image must be a valid https:// URL or uploaded file.",
+        );
+        return;
+      }
+
+      if (newProject.githubUrl && !validateUrl(newProject.githubUrl).ok) {
+        setUploadStatus("GitHub URL is invalid. Include https://");
+        return;
+      }
+      if (newProject.liveUrl && !validateUrl(newProject.liveUrl).ok) {
+        setUploadStatus("Live URL is invalid. Include https://");
+        return;
+      }
       const added: Project = {
         id: Math.random().toString(36).substring(2, 9),
         title: newProject.title,
         description: newProject.description,
-        image: newProject.image || "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&q=80",
+        image:
+          newProject.image ||
+          "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&q=80",
         techStack: newProject.techStack || [],
         githubUrl: newProject.githubUrl || "https://github.com",
-        liveUrl: newProject.liveUrl || "https://vercel.app"
+        liveUrl: newProject.liveUrl || "https://vercel.app",
       };
       updatedProjects.push(added);
       setNewProject({
@@ -136,7 +293,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
         image: "",
         techStack: [],
         githubUrl: "",
-        liveUrl: ""
+        liveUrl: "",
       });
       setTechInput("");
     }
@@ -148,7 +305,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
   const handleDeleteProject = (id: string) => {
     if (!confirm("Are you sure you want to delete this project?")) return;
-    const updated = projects.filter(p => p.id !== id);
+    const updated = projects.filter((p) => p.id !== id);
     setProjects(updated);
     saveProjects(updated);
     onDataChange();
@@ -157,7 +314,10 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
   const addTechPill = (isEditing: boolean) => {
     if (!techInput.trim()) return;
     if (isEditing && editingProject) {
-      const updatedStack = [...(editingProject.techStack || []), techInput.trim()];
+      const updatedStack = [
+        ...(editingProject.techStack || []),
+        techInput.trim(),
+      ];
       setEditingProject({ ...editingProject, techStack: updatedStack });
     } else {
       const updatedStack = [...(newProject.techStack || []), techInput.trim()];
@@ -170,18 +330,21 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     if (isEditing && editingProject) {
       setEditingProject({
         ...editingProject,
-        techStack: editingProject.techStack.filter(t => t !== tech)
+        techStack: editingProject.techStack.filter((t) => t !== tech),
       });
     } else {
       setNewProject({
         ...newProject,
-        techStack: (newProject.techStack || []).filter(t => t !== tech)
+        techStack: (newProject.techStack || []).filter((t) => t !== tech),
       });
     }
   };
 
   // Convert File uploads to base64 strings to simulate local photos upload
-  const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>, target: "project" | "avatar" | "song" | "resume") => {
+  const handlePhotoUpload = (
+    e: ChangeEvent<HTMLInputElement>,
+    target: "project" | "avatar" | "song" | "resume",
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -194,7 +357,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
         const updatedResume = {
           url: "#",
           fileName: file.name,
-          updatedAt: new Date().toISOString().split("T")[0]
+          updatedAt: new Date().toISOString().split("T")[0],
         };
         setResume(updatedResume);
         saveResume(updatedResume);
@@ -236,7 +399,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     const text = newSkillText[catId];
     if (!text || !text.trim()) return;
 
-    const updated = skills.map(cat => {
+    const updated = skills.map((cat) => {
       if (cat.id === catId) {
         return { ...cat, items: [...cat.items, text.trim()] };
       }
@@ -250,9 +413,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
   };
 
   const handleRemoveSkill = (catId: string, skill: string) => {
-    const updated = skills.map(cat => {
+    const updated = skills.map((cat) => {
       if (cat.id === catId) {
-        return { ...cat, items: cat.items.filter(i => i !== skill) };
+        return { ...cat, items: cat.items.filter((i) => i !== skill) };
       }
       return cat;
     });
@@ -268,20 +431,43 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     let updatedWork = [...workUpdates];
 
     if (editingWork) {
-      updatedWork = updatedWork.map(w => w.id === editingWork.id ? { ...editingWork } : w);
+      updatedWork = updatedWork.map((w) =>
+        w.id === editingWork.id ? { ...editingWork } : w,
+      );
       setEditingWork(null);
     } else {
-      if (!newWork.role || !newWork.company) return;
+      // validation
+      const roleV = validateShortText(newWork.role || "");
+      const compV = validateShortText(newWork.company || "");
+      if (!roleV.ok) {
+        setUploadStatus(roleV.error);
+        return;
+      }
+      if (!compV.ok) {
+        setUploadStatus(compV.error);
+        return;
+      }
+
+      if (newWork.companyUrl && !validateUrl(newWork.companyUrl).ok) {
+        setUploadStatus("Company URL is invalid. Include https://");
+        return;
+      }
       const added: WorkUpdate = {
         id: Math.random().toString(36).substring(2, 9),
         role: newWork.role,
         company: newWork.company,
         companyUrl: newWork.companyUrl || "https://google.com",
         duration: newWork.duration || "Present",
-        description: newWork.description || ""
+        description: newWork.description || "",
       };
       updatedWork.push(added);
-      setNewWork({ role: "", company: "", companyUrl: "", duration: "", description: "" });
+      setNewWork({
+        role: "",
+        company: "",
+        companyUrl: "",
+        duration: "",
+        description: "",
+      });
     }
 
     setWorkUpdates(updatedWork);
@@ -291,7 +477,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
   const handleDeleteWork = (id: string) => {
     if (!confirm("Delete this work record?")) return;
-    const updated = workUpdates.filter(w => w.id !== id);
+    const updated = workUpdates.filter((w) => w.id !== id);
     setWorkUpdates(updated);
     saveWorkUpdates(updated);
     onDataChange();
@@ -303,16 +489,34 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
     let updatedSongs = [...songs];
 
     if (editingSong) {
-      updatedSongs = updatedSongs.map(s => s.id === editingSong.id ? { ...editingSong } : s);
+      updatedSongs = updatedSongs.map((s) =>
+        s.id === editingSong.id ? { ...editingSong } : s,
+      );
       setEditingSong(null);
     } else {
-      if (!newSong.title || !newSong.artist) return;
+      const titleV = validateShortText(newSong.title || "");
+      const artistV = validateShortText(newSong.artist || "");
+      if (!titleV.ok) {
+        setUploadStatus(titleV.error);
+        return;
+      }
+      if (!artistV.ok) {
+        setUploadStatus(artistV.error);
+        return;
+      }
+
+      if (newSong.spotifyUrl && !validateUrl(newSong.spotifyUrl).ok) {
+        setUploadStatus("Spotify URL is invalid. Include https://");
+        return;
+      }
       const added: Song = {
         id: Math.random().toString(36).substring(2, 9),
         title: newSong.title,
         artist: newSong.artist,
-        coverUrl: newSong.coverUrl || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400",
-        spotifyUrl: newSong.spotifyUrl || "https://spotify.com"
+        coverUrl:
+          newSong.coverUrl ||
+          "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400",
+        spotifyUrl: newSong.spotifyUrl || "https://spotify.com",
       };
       updatedSongs.push(added);
       setNewSong({ title: "", artist: "", coverUrl: "", spotifyUrl: "" });
@@ -325,7 +529,7 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
   const handleDeleteSong = (id: string) => {
     if (!confirm("Are you sure you want to delete this song?")) return;
-    const updated = songs.filter(s => s.id !== id);
+    const updated = songs.filter((s) => s.id !== id);
     setSongs(updated);
     saveSongs(updated);
     onDataChange();
@@ -339,35 +543,68 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
   };
 
   // 5. ANALYTICS CALCULATIONS
-  const totalViews = logs.filter(l => l.type === "page_view").length;
-  const projectClicks = logs.filter(l => l.type === "project_click").length;
-  const liveClicks = logs.filter(l => l.type === "live_click").length;
-  const githubClicks = logs.filter(l => l.type === "github_click").length;
-  const resumeDownloads = logs.filter(l => l.type === "resume_download").length;
-  const bookings = logs.filter(l => l.type === "book_call_success").length;
+  const totalViews = logs.filter((l) => l.type === "page_view").length;
+  const projectClicks = logs.filter((l) => l.type === "project_click").length;
+  const liveClicks = logs.filter((l) => l.type === "live_click").length;
+  const githubClicks = logs.filter((l) => l.type === "github_click").length;
+  const resumeDownloads = logs.filter(
+    (l) => l.type === "resume_download",
+  ).length;
+  const bookings = logs.filter((l) => l.type === "book_call_success").length;
 
   const handleClearActivities = () => {
-    if (!confirm("Clear all website activity analytics? This cannot be undone.")) return;
+    if (
+      !confirm("Clear all website activity analytics? This cannot be undone.")
+    )
+      return;
     clearActivities();
     setLogs([]);
   };
 
   if (!isOpen) return null;
 
+  const Outer = ({ children }: { children: React.ReactNode }) => {
+    if (isPage) {
+      return (
+        <div
+          className="min-h-screen flex flex-col"
+          style={{ background: "var(--bg)" }}
+        >
+          {children}
+        </div>
+      );
+    }
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md overflow-y-auto p-4 select-none">
+        {children}
+      </div>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md overflow-y-auto p-4 select-none">
+    <Outer>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-5xl bg-[#121216] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        style={{
+          background: "var(--card-bg)",
+          borderColor: "rgba(255,255,255,0.06)",
+        }}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#16161c]">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{
+            background: "var(--card-bg-2)",
+            borderColor: "rgba(255,255,255,0.06)",
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-5 h-5 text-purple-400" />
-            <h2 className="text-[#F4EEE8] font-bold text-sm tracking-wider uppercase">
-              Syed's Admin Panel
+            <h2 className="font-bold text-sm tracking-wider uppercase">
+              Rohon's Admin Panel
             </h2>
             {isAuthenticated && (
               <span className="text-[10px] bg-purple-500/10 text-purple-400 font-semibold px-2 py-0.5 rounded-full border border-purple-500/20 uppercase tracking-widest">
@@ -375,58 +612,173 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
               </span>
             )}
           </div>
-          <button 
+          <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center border border-white/5 hover:border-white/20 text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center border hover:border-white/20 cursor-pointer transition-colors"
+            style={{
+              borderColor: "rgba(255,255,255,0.05)",
+              color: "var(--text-secondary)",
+            }}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Content Body */}
-        {!isAuthenticated ? (
-          /* Password Form */
-          <div className="flex-1 p-12 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
-            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-purple-400">
-              <Lock className="w-8 h-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-[#F4EEE8] uppercase tracking-wide">Enter Administrator Password</h3>
-              <p className="text-xs text-[#A3A3AA] leading-relaxed">
-                Unlock the gateway to dynamic uploads, updating skills, editing your projects, and reviewing real-time web activities.
-              </p>
-            </div>
-            <form onSubmit={handleLogin} className="w-full space-y-4">
-              <div className="space-y-1">
-                <input
-                  type="password"
-                  placeholder="Enter Password (default: admin)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#1e1e24] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#F4EEE8] outline-none focus:border-purple-400 text-center transition-all"
-                  autoFocus
-                />
-                {authError && <p className="text-rose-400 text-[11px] font-medium pt-1">{authError}</p>}
-              </div>
-              <button
-                type="submit"
-                className="w-full py-3 bg-[#F4EEE8] text-[#0B0B12] rounded-xl font-bold text-xs tracking-wider uppercase hover:bg-white transition-all cursor-pointer shadow-lg shadow-purple-500/5 flex items-center justify-center gap-2"
+        {authStep !== "authenticated" ? (
+          authStep === "idle" ? (
+            /* Password Form */
+            <div className="flex-1 p-12 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
+              <div
+                className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"
+                style={{ color: "var(--text-primary)" }}
               >
-                Unlock Panel <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          </div>
+                <Lock className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3
+                  className="text-xl font-bold uppercase tracking-wide"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Enter Administrator Password
+                </h3>
+                <p
+                  className="text-xs leading-relaxed"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Unlock the gateway to dynamic uploads, updating skills,
+                  editing your projects, and reviewing real-time web activities.
+                </p>
+              </div>
+              <form
+                onSubmit={handlePasswordSubmit}
+                className="w-full space-y-4"
+              >
+                <div className="space-y-1">
+                  <input
+                    type="password"
+                    placeholder="Enter Password (default: admin)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border rounded-xl px-4 py-3 text-sm outline-none text-center transition-all"
+                    style={{
+                      background: "var(--card-bg-2)",
+                      color: "var(--text-primary)",
+                      borderColor: "rgba(255,255,255,0.06)",
+                    }}
+                    autoFocus
+                  />
+                  {authError && (
+                    <p className="text-rose-400 text-[11px] font-medium pt-1">
+                      {authError}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl font-bold text-xs tracking-wider uppercase hover:opacity-95 transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2"
+                  style={{
+                    background: "var(--text-primary)",
+                    color: "var(--bg)",
+                  }}
+                >
+                  Unlock Panel <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            </div>
+          ) : (
+            /* OTP Form */
+            <div className="flex-1 p-8 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
+              <div
+                className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"
+                style={{ color: "var(--text-primary)" }}
+              >
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <div>
+                <h3
+                  className="text-lg font-bold uppercase tracking-wide"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Two-Factor Authentication
+                </h3>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Enter the 6-digit code from your authenticator app.
+                </p>
+              </div>
+              {qrDataUrl && (
+                <div className="p-3 bg-white/5 rounded-xl">
+                  <img src={qrDataUrl} alt="TOTP QR" />
+                  <p
+                    className="text-[10px] mt-2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    Scan this in Google Authenticator (first-time setup)
+                  </p>
+                </div>
+              )}
+              <form onSubmit={handleVerifyOtp} className="w-full space-y-4">
+                <input
+                  type="text"
+                  placeholder="123456"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  className="w-full border rounded-xl px-4 py-3 text-sm text-center outline-none"
+                  style={{
+                    background: "var(--card-bg-2)",
+                    color: "var(--text-primary)",
+                    borderColor: "rgba(255,255,255,0.06)",
+                  }}
+                />
+                {authError && (
+                  <p className="text-rose-400 text-[11px] font-medium pt-1">
+                    {authError}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 rounded-xl font-bold text-xs uppercase"
+                    style={{
+                      background: "var(--text-primary)",
+                      color: "var(--bg)",
+                    }}
+                  >
+                    Verify
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthStep("idle");
+                      setPassword("");
+                      setQrDataUrl("");
+                    }}
+                    className="py-3 px-3 rounded-xl text-xs border"
+                    style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                  >
+                    Back
+                  </button>
+                </div>
+              </form>
+            </div>
+          )
         ) : (
           /* Actual Dashboard */
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-            
             {/* Sidebar Navigation */}
-            <div className="w-full lg:w-[220px] bg-[#16161c] border-r border-white/5 p-4 flex flex-col justify-between">
+            <div
+              className="w-full lg:w-[220px] border-r p-4 flex flex-col justify-between"
+              style={{
+                background: "var(--card-bg-2)",
+                borderColor: "rgba(255,255,255,0.05)",
+              }}
+            >
               <div className="space-y-1.5">
                 <button
                   onClick={() => setActiveTab("analytics")}
                   className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    activeTab === "analytics" ? "bg-white/5 text-[#F4EEE8] border border-white/10" : "text-[#A8A8B0] hover:text-[#F4EEE8] hover:bg-white/[0.02]"
+                    activeTab === "analytics"
+                      ? "bg-white/5 border border-white/10"
+                      : "hover:bg-white/[0.02]"
                   }`}
                 >
                   <Activity className="w-4 h-4 text-purple-400" />
@@ -435,7 +787,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                 <button
                   onClick={() => setActiveTab("projects")}
                   className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    activeTab === "projects" ? "bg-white/5 text-[#F4EEE8] border border-white/10" : "text-[#A8A8B0] hover:text-[#F4EEE8] hover:bg-white/[0.02]"
+                    activeTab === "projects"
+                      ? "bg-white/5 border border-white/10"
+                      : "hover:bg-white/[0.02]"
                   }`}
                 >
                   <FolderKanban className="w-4 h-4 text-purple-400" />
@@ -444,7 +798,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                 <button
                   onClick={() => setActiveTab("skills")}
                   className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    activeTab === "skills" ? "bg-white/5 text-[#F4EEE8] border border-white/10" : "text-[#A8A8B0] hover:text-[#F4EEE8] hover:bg-white/[0.02]"
+                    activeTab === "skills"
+                      ? "bg-white/5 border border-white/10"
+                      : "hover:bg-white/[0.02]"
                   }`}
                 >
                   <Award className="w-4 h-4 text-purple-400" />
@@ -453,7 +809,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                 <button
                   onClick={() => setActiveTab("work")}
                   className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    activeTab === "work" ? "bg-white/5 text-[#F4EEE8] border border-white/10" : "text-[#A8A8B0] hover:text-[#F4EEE8] hover:bg-white/[0.02]"
+                    activeTab === "work"
+                      ? "bg-white/5 border border-white/10"
+                      : "hover:bg-white/[0.02]"
                   }`}
                 >
                   <FileText className="w-4 h-4 text-purple-400" />
@@ -462,7 +820,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                 <button
                   onClick={() => setActiveTab("photos")}
                   className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                    activeTab === "photos" ? "bg-white/5 text-[#F4EEE8] border border-white/10" : "text-[#A8A8B0] hover:text-[#F4EEE8] hover:bg-white/[0.02]"
+                    activeTab === "photos"
+                      ? "bg-white/5 border border-white/10"
+                      : "hover:bg-white/[0.02]"
                   }`}
                 >
                   <Image className="w-4 h-4 text-purple-400" />
@@ -482,12 +842,16 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
             {/* Core Working Area */}
             <div className="flex-1 p-6 overflow-y-auto max-h-[65vh] lg:max-h-[unset] space-y-6">
-              
               {/* STATUS LOG MESSAGE */}
               {uploadStatus && (
                 <div className="flex items-center justify-between p-3.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-xl text-xs font-medium tracking-wide">
                   <span>{uploadStatus}</span>
-                  <button onClick={() => setUploadStatus("")} className="hover:text-white cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                  <button
+                    onClick={() => setUploadStatus("")}
+                    className="hover:text-white cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 
@@ -496,8 +860,12 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
                     <div>
-                      <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">Visitor & Web Analytics</h3>
-                      <p className="text-xs text-[#A3A3AA]">Track real-time interaction logs and overall metrics.</p>
+                      <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">
+                        Visitor & Web Analytics
+                      </h3>
+                      <p className="text-xs text-[#A3A3AA]">
+                        Track real-time interaction logs and overall metrics.
+                      </p>
                     </div>
                     <button
                       onClick={handleClearActivities}
@@ -509,55 +877,119 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                   {/* Summary Metric Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div className="bg-[#1e1e24]/40 border border-white/5 p-4 rounded-xl space-y-1.5">
-                      <p className="text-[10px] uppercase text-[#A3A3AA] tracking-wider font-semibold">Page Views</p>
-                      <p className="text-2xl font-black text-[#F4EEE8]">{totalViews}</p>
-                    </div>
-                    <div className="bg-[#1e1e24]/40 border border-white/5 p-4 rounded-xl space-y-1.5">
-                      <p className="text-[10px] uppercase text-[#A3A3AA] tracking-wider font-semibold">Project Clicks</p>
-                      <p className="text-2xl font-black text-[#F4EEE8]">{projectClicks}</p>
-                    </div>
-                    <div className="bg-[#1e1e24]/40 border border-white/5 p-4 rounded-xl space-y-1.5">
-                      <p className="text-[10px] uppercase text-[#A3A3AA] tracking-wider font-semibold">Live Links</p>
-                      <p className="text-2xl font-black text-[#F4EEE8]">{liveClicks}</p>
-                    </div>
-                    <div className="bg-[#1e1e24]/40 border border-white/5 p-4 rounded-xl space-y-1.5">
-                      <p className="text-[10px] uppercase text-[#A3A3AA] tracking-wider font-semibold">GitHub Clicks</p>
-                      <p className="text-2xl font-black text-[#F4EEE8]">{githubClicks}</p>
-                    </div>
-                    <div className="bg-[#1e1e24]/40 border border-white/5 p-4 rounded-xl space-y-1.5">
-                      <p className="text-[10px] uppercase text-[#A3A3AA] tracking-wider font-semibold">Resume Dl</p>
-                      <p className="text-2xl font-black text-[#F4EEE8]">{resumeDownloads}</p>
-                    </div>
-                    <div className="bg-[#1e1e24]/40 border border-white/5 p-4 rounded-xl space-y-1.5">
-                      <p className="text-[10px] uppercase text-[#A3A3AA] tracking-wider font-semibold">Calls Booked</p>
-                      <p className="text-2xl font-black text-[#F4EEE8]">{bookings}</p>
-                    </div>
+                    {[
+                      { label: "Page Views", val: totalViews },
+                      { label: "Project Clicks", val: projectClicks },
+                      { label: "Live Links", val: liveClicks },
+                      { label: "GitHub Clicks", val: githubClicks },
+                      { label: "Resume Dl", val: resumeDownloads },
+                      { label: "Calls Booked", val: bookings },
+                    ].map((card, idx) => (
+                      <div
+                        key={idx}
+                        className="border p-4 rounded-xl space-y-1.5"
+                        style={{
+                          background: "var(--card-bg-2)",
+                          borderColor: "rgba(255,255,255,0.05)",
+                        }}
+                      >
+                        <p
+                          className="text-[10px] uppercase tracking-wider font-semibold"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {card.label}
+                        </p>
+                        <p
+                          className="text-2xl font-black"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {card.val}
+                        </p>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Visual SVG Activity Charts matching high contrast design */}
-                  <div className="bg-[#1e1e24]/20 border border-white/5 p-5 rounded-2xl">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8] mb-4 flex items-center gap-2">
-                      <BarChart2 className="w-4 h-4 text-purple-400" /> Click breakdown graph
+                  <div
+                    className="border p-5 rounded-2xl"
+                    style={{
+                      background: "var(--card-bg-2)",
+                      borderColor: "rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    <h4
+                      className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      <BarChart2 className="w-4 h-4 text-purple-400" /> Click
+                      breakdown graph
                     </h4>
                     <div className="space-y-3">
                       {[
-                        { label: "Views", val: totalViews, color: "bg-purple-400" },
-                        { label: "Project Clicks", val: projectClicks, color: "bg-indigo-400" },
-                        { label: "Live Clicks", val: liveClicks, color: "bg-sky-400" },
-                        { label: "GitHub Clicks", val: githubClicks, color: "bg-slate-400" },
-                        { label: "Resume Downloads", val: resumeDownloads, color: "bg-emerald-400" },
-                        { label: "Bookings", val: bookings, color: "bg-pink-400" }
+                        {
+                          label: "Views",
+                          val: totalViews,
+                          color: "bg-purple-400",
+                        },
+                        {
+                          label: "Project Clicks",
+                          val: projectClicks,
+                          color: "bg-indigo-400",
+                        },
+                        {
+                          label: "Live Clicks",
+                          val: liveClicks,
+                          color: "bg-sky-400",
+                        },
+                        {
+                          label: "GitHub Clicks",
+                          val: githubClicks,
+                          color: "bg-slate-400",
+                        },
+                        {
+                          label: "Resume Downloads",
+                          val: resumeDownloads,
+                          color: "bg-emerald-400",
+                        },
+                        {
+                          label: "Bookings",
+                          val: bookings,
+                          color: "bg-pink-400",
+                        },
                       ].map((bar, idx) => {
-                        const maxVal = Math.max(totalViews, projectClicks, liveClicks, githubClicks, resumeDownloads, bookings, 1);
+                        const maxVal = Math.max(
+                          totalViews,
+                          projectClicks,
+                          liveClicks,
+                          githubClicks,
+                          resumeDownloads,
+                          bookings,
+                          1,
+                        );
                         const percentage = (bar.val / maxVal) * 100;
                         return (
-                          <div key={idx} className="flex items-center gap-4 text-xs">
-                            <span className="w-32 text-[#A3A3AA] truncate font-medium uppercase tracking-wider text-[10px]">{bar.label}</span>
+                          <div
+                            key={idx}
+                            className="flex items-center gap-4 text-xs"
+                          >
+                            <span
+                              className="w-32 truncate font-medium uppercase tracking-wider text-[10px]"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              {bar.label}
+                            </span>
                             <div className="flex-1 bg-white/5 h-2 rounded-full overflow-hidden">
-                              <div className={`h-full ${bar.color}`} style={{ width: `${percentage}%` }} />
+                              <div
+                                className={`h-full ${bar.color}`}
+                                style={{ width: `${percentage}%` }}
+                              />
                             </div>
-                            <span className="w-8 text-right text-[#F4EEE8] font-bold">{bar.val}</span>
+                            <span
+                              className="w-8 text-right font-bold"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {bar.val}
+                            </span>
                           </div>
                         );
                       })}
@@ -566,20 +998,42 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                   {/* Log list */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8] flex items-center gap-2">
-                      <Activity className="w-4 h-4 text-purple-400" /> Chronological Log History
+                    <h4
+                      className="text-xs font-bold uppercase tracking-wider flex items-center gap-2"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      <Activity className="w-4 h-4 text-purple-400" />{" "}
+                      Chronological Log History
                     </h4>
                     {logs.length === 0 ? (
-                      <p className="text-xs text-[#A3A3AA] py-6 text-center border border-dashed border-white/10 rounded-xl">No activities logged yet. Browse around the portfolio to record some events!</p>
+                      <p
+                        className="text-xs py-6 text-center border border-dashed rounded-xl"
+                        style={{
+                          color: "var(--text-muted)",
+                          borderColor: "rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        No activities logged yet. Browse around the portfolio to
+                        record some events!
+                      </p>
                     ) : (
                       <div className="border border-white/5 rounded-xl overflow-hidden divide-y divide-white/5 max-h-[250px] overflow-y-auto pr-2">
                         {logs.map((log) => (
-                          <div key={log.id} className="flex justify-between items-center p-3 text-xs font-mono">
+                          <div
+                            key={log.id}
+                            className="flex justify-between items-center p-3 text-xs font-mono"
+                          >
                             <div className="flex gap-3 items-center">
-                              <span className="text-[10px] text-purple-400 uppercase tracking-wider font-bold">[{log.type}]</span>
-                              <span className="text-[#F4EEE8]">{log.details}</span>
+                              <span className="text-[10px] text-purple-400 uppercase tracking-wider font-bold">
+                                [{log.type}]
+                              </span>
+                              <span style={{ color: "var(--text-primary)" }}>
+                                {log.details}
+                              </span>
                             </div>
-                            <span className="text-white/30 text-[10px]">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                            <span className="text-white/30 text-[10px]">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -592,15 +1046,24 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
               {activeTab === "projects" && (
                 <div className="space-y-6">
                   <div className="border-b border-white/5 pb-4">
-                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">Upload & Manage Projects</h3>
-                    <p className="text-xs text-[#A3A3AA]">Add new work showcase assets or edit operational entries.</p>
+                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Upload & Manage Projects
+                    </h3>
+                    <p className="text-xs text-[#A3A3AA]">
+                      Add new work showcase assets or edit operational entries.
+                    </p>
                   </div>
 
                   {/* Add/Edit Form */}
-                  <form onSubmit={handleSaveProject} className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                  <form
+                    onSubmit={handleSaveProject}
+                    className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8]">
-                        {editingProject ? "Editing Project Context" : "Add New Project"}
+                        {editingProject
+                          ? "Editing Project Context"
+                          : "Add New Project"}
                       </h4>
                       {editingProject && (
                         <button
@@ -615,23 +1078,55 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Project Title</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Project Title
+                        </label>
                         <input
                           type="text"
                           required
-                          value={editingProject ? editingProject.title : newProject.title}
-                          onChange={(e) => editingProject ? setEditingProject({ ...editingProject, title: e.target.value }) : setNewProject({ ...newProject, title: e.target.value })}
+                          value={
+                            editingProject
+                              ? editingProject.title
+                              : newProject.title
+                          }
+                          onChange={(e) =>
+                            editingProject
+                              ? setEditingProject({
+                                  ...editingProject,
+                                  title: e.target.value,
+                                })
+                              : setNewProject({
+                                  ...newProject,
+                                  title: e.target.value,
+                                })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="e.g. Astro-Dashboard"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Cover Image URL</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Cover Image URL
+                        </label>
                         <div className="flex gap-2">
                           <input
                             type="text"
-                            value={editingProject ? editingProject.image : (newProject.image || "")}
-                            onChange={(e) => editingProject ? setEditingProject({ ...editingProject, image: e.target.value }) : setNewProject({ ...newProject, image: e.target.value })}
+                            value={
+                              editingProject
+                                ? editingProject.image
+                                : newProject.image || ""
+                            }
+                            onChange={(e) =>
+                              editingProject
+                                ? setEditingProject({
+                                    ...editingProject,
+                                    image: e.target.value,
+                                  })
+                                : setNewProject({
+                                    ...newProject,
+                                    image: e.target.value,
+                                  })
+                            }
                             className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                             placeholder="Preset image or paste Unsplash link"
                           />
@@ -649,12 +1144,28 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Description</label>
+                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                        Description
+                      </label>
                       <textarea
                         required
                         rows={2}
-                        value={editingProject ? editingProject.description : newProject.description}
-                        onChange={(e) => editingProject ? setEditingProject({ ...editingProject, description: e.target.value }) : setNewProject({ ...newProject, description: e.target.value })}
+                        value={
+                          editingProject
+                            ? editingProject.description
+                            : newProject.description
+                        }
+                        onChange={(e) =>
+                          editingProject
+                            ? setEditingProject({
+                                ...editingProject,
+                                description: e.target.value,
+                              })
+                            : setNewProject({
+                                ...newProject,
+                                description: e.target.value,
+                              })
+                        }
                         className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 resize-none"
                         placeholder="Detail project highlights and outcomes"
                       />
@@ -662,21 +1173,53 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">GitHub URL</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          GitHub URL
+                        </label>
                         <input
                           type="url"
-                          value={editingProject ? editingProject.githubUrl : (newProject.githubUrl || "")}
-                          onChange={(e) => editingProject ? setEditingProject({ ...editingProject, githubUrl: e.target.value }) : setNewProject({ ...newProject, githubUrl: e.target.value })}
+                          value={
+                            editingProject
+                              ? editingProject.githubUrl
+                              : newProject.githubUrl || ""
+                          }
+                          onChange={(e) =>
+                            editingProject
+                              ? setEditingProject({
+                                  ...editingProject,
+                                  githubUrl: e.target.value,
+                                })
+                              : setNewProject({
+                                  ...newProject,
+                                  githubUrl: e.target.value,
+                                })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="https://github.com/..."
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Live URL</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Live URL
+                        </label>
                         <input
                           type="url"
-                          value={editingProject ? editingProject.liveUrl : (newProject.liveUrl || "")}
-                          onChange={(e) => editingProject ? setEditingProject({ ...editingProject, liveUrl: e.target.value }) : setNewProject({ ...newProject, liveUrl: e.target.value })}
+                          value={
+                            editingProject
+                              ? editingProject.liveUrl
+                              : newProject.liveUrl || ""
+                          }
+                          onChange={(e) =>
+                            editingProject
+                              ? setEditingProject({
+                                  ...editingProject,
+                                  liveUrl: e.target.value,
+                                })
+                              : setNewProject({
+                                  ...newProject,
+                                  liveUrl: e.target.value,
+                                })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="https://..."
                         />
@@ -684,13 +1227,18 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Tech Stack pills</label>
+                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                        Tech Stack pills
+                      </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={techInput}
                           onChange={(e) => setTechInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTechPill(!!editingProject))}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" &&
+                            (e.preventDefault(), addTechPill(!!editingProject))
+                          }
                           className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="e.g. Next.js, then click Add"
                         />
@@ -705,7 +1253,10 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                       {/* Display current stack */}
                       <div className="flex flex-wrap gap-1.5 pt-2">
-                        {(editingProject ? editingProject.techStack : (newProject.techStack || [])).map(tech => (
+                        {(editingProject
+                          ? editingProject.techStack
+                          : newProject.techStack || []
+                        ).map((tech) => (
                           <span
                             key={tech}
                             className="bg-white/5 border border-white/5 text-[10px] px-2.5 py-1 rounded-full text-[#F4EEE8] flex items-center gap-1 uppercase tracking-wider font-semibold"
@@ -713,10 +1264,12 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                             {tech}
                             <button
                               type="button"
-                              onClick={() => removeTechPill(tech, !!editingProject)}
+                              onClick={() =>
+                                removeTechPill(tech, !!editingProject)
+                              }
                               className="text-[#A3A3AA] hover:text-rose-400 text-xs ml-1"
                             >
-                              ×
+                              ├ù
                             </button>
                           </span>
                         ))}
@@ -733,10 +1286,15 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                   {/* List of current projects */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8]">Current Active Projects ({projects.length})</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Current Active Projects ({projects.length})
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {projects.map((proj) => (
-                        <div key={proj.id} className="bg-[#1e1e24]/20 border border-white/5 p-4 rounded-xl flex gap-4 items-center">
+                        <div
+                          key={proj.id}
+                          className="bg-[#1e1e24]/20 border border-white/5 p-4 rounded-xl flex gap-4 items-center"
+                        >
                           <img
                             src={proj.image}
                             alt={proj.title}
@@ -744,8 +1302,12 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                             referrerPolicy="no-referrer"
                           />
                           <div className="flex-1 min-w-0">
-                            <h5 className="text-xs font-bold uppercase text-[#F4EEE8] truncate">{proj.title}</h5>
-                            <p className="text-[10px] text-[#A3A3AA] line-clamp-2 mt-1">{proj.description}</p>
+                            <h5 className="text-xs font-bold uppercase text-[#F4EEE8] truncate">
+                              {proj.title}
+                            </h5>
+                            <p className="text-[10px] text-[#A3A3AA] line-clamp-2 mt-1">
+                              {proj.description}
+                            </p>
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <button
@@ -774,13 +1336,21 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
               {activeTab === "skills" && (
                 <div className="space-y-6">
                   <div className="border-b border-white/5 pb-4">
-                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">Manage Skills & Tech Stack</h3>
-                    <p className="text-xs text-[#A3A3AA]">Add or remove tools in frontend, backend, or UI categories.</p>
+                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Manage Skills & Tech Stack
+                    </h3>
+                    <p className="text-xs text-[#A3A3AA]">
+                      Add or remove tools in frontend, backend, or UI
+                      categories.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-6">
                     {skills.map((category) => (
-                      <div key={category.id} className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                      <div
+                        key={category.id}
+                        className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4"
+                      >
                         <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8] pb-2 border-b border-white/5">
                           {category.title}
                         </h4>
@@ -794,10 +1364,12 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                             >
                               {skill}
                               <button
-                                onClick={() => handleRemoveSkill(category.id, skill)}
+                                onClick={() =>
+                                  handleRemoveSkill(category.id, skill)
+                                }
                                 className="text-[#A3A3AA] hover:text-rose-400 font-bold text-xs"
                               >
-                                ×
+                                ├ù
                               </button>
                             </span>
                           ))}
@@ -808,8 +1380,15 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                           <input
                             type="text"
                             value={newSkillText[category.id] || ""}
-                            onChange={(e) => setNewSkillText({ ...newSkillText, [category.id]: e.target.value })}
-                            onKeyDown={(e) => e.key === "Enter" && handleAddSkill(category.id)}
+                            onChange={(e) =>
+                              setNewSkillText({
+                                ...newSkillText,
+                                [category.id]: e.target.value,
+                              })
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleAddSkill(category.id)
+                            }
                             placeholder={`Add tool to ${category.title}...`}
                             className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           />
@@ -830,19 +1409,27 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
               {activeTab === "work" && (
                 <div className="space-y-6">
                   <div className="border-b border-white/5 pb-4">
-                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">Manage Work Experience & Resume</h3>
-                    <p className="text-xs text-[#A3A3AA]">Add chronological career checkpoints and update your PDF resume metadata.</p>
+                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Manage Work Experience & Resume
+                    </h3>
+                    <p className="text-xs text-[#A3A3AA]">
+                      Add chronological career checkpoints and update your PDF
+                      resume metadata.
+                    </p>
                   </div>
 
                   {/* Resume upload box */}
                   <div className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8] flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-purple-400" /> Resume metadata
+                      <FileText className="w-4 h-4 text-purple-400" /> Resume
+                      metadata
                     </h4>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Resume Link / URL</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Resume Link / URL
+                        </label>
                         <input
                           type="text"
                           value={resume.url}
@@ -856,7 +1443,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Virtual File Upload</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Virtual File Upload
+                        </label>
                         <label className="cursor-pointer bg-white/5 hover:bg-white/10 w-full h-[38px] border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide transition-all">
                           Select Document (.pdf)
                           <input
@@ -870,36 +1459,74 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                     </div>
 
                     <div className="text-[10px] text-[#A3A3AA] flex justify-between uppercase tracking-wider pt-2">
-                      <span>Active File: <strong className="text-[#F4EEE8]">{resume.fileName}</strong></span>
-                      <span>Last Refreshed: <strong className="text-[#F4EEE8]">{resume.updatedAt}</strong></span>
+                      <span>
+                        Active File:{" "}
+                        <strong className="text-[#F4EEE8]">
+                          {resume.fileName}
+                        </strong>
+                      </span>
+                      <span>
+                        Last Refreshed:{" "}
+                        <strong className="text-[#F4EEE8]">
+                          {resume.updatedAt}
+                        </strong>
+                      </span>
                     </div>
                   </div>
 
                   {/* Work edit form */}
-                  <form onSubmit={handleSaveWork} className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                  <form
+                    onSubmit={handleSaveWork}
+                    className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4"
+                  >
                     <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8]">
-                      {editingWork ? "Edit Career History Checkpoint" : "Add Career History Checkpoint"}
+                      {editingWork
+                        ? "Edit Career History Checkpoint"
+                        : "Add Career History Checkpoint"}
                     </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Role / Title</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Role / Title
+                        </label>
                         <input
                           type="text"
                           required
                           value={editingWork ? editingWork.role : newWork.role}
-                          onChange={(e) => editingWork ? setEditingWork({ ...editingWork, role: e.target.value }) : setNewWork({ ...newWork, role: e.target.value })}
+                          onChange={(e) =>
+                            editingWork
+                              ? setEditingWork({
+                                  ...editingWork,
+                                  role: e.target.value,
+                                })
+                              : setNewWork({ ...newWork, role: e.target.value })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="e.g. Senior Frontend Dev"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Company Name</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Company Name
+                        </label>
                         <input
                           type="text"
                           required
-                          value={editingWork ? editingWork.company : newWork.company}
-                          onChange={(e) => editingWork ? setEditingWork({ ...editingWork, company: e.target.value }) : setNewWork({ ...newWork, company: e.target.value })}
+                          value={
+                            editingWork ? editingWork.company : newWork.company
+                          }
+                          onChange={(e) =>
+                            editingWork
+                              ? setEditingWork({
+                                  ...editingWork,
+                                  company: e.target.value,
+                                })
+                              : setNewWork({
+                                  ...newWork,
+                                  company: e.target.value,
+                                })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="e.g. Virallens"
                         />
@@ -908,21 +1535,53 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Company URL</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Company URL
+                        </label>
                         <input
                           type="url"
-                          value={editingWork ? editingWork.companyUrl : (newWork.companyUrl || "")}
-                          onChange={(e) => editingWork ? setEditingWork({ ...editingWork, companyUrl: e.target.value }) : setNewWork({ ...newWork, companyUrl: e.target.value })}
+                          value={
+                            editingWork
+                              ? editingWork.companyUrl
+                              : newWork.companyUrl || ""
+                          }
+                          onChange={(e) =>
+                            editingWork
+                              ? setEditingWork({
+                                  ...editingWork,
+                                  companyUrl: e.target.value,
+                                })
+                              : setNewWork({
+                                  ...newWork,
+                                  companyUrl: e.target.value,
+                                })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="https://..."
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Duration</label>
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                          Duration
+                        </label>
                         <input
                           type="text"
-                          value={editingWork ? editingWork.duration : (newWork.duration || "")}
-                          onChange={(e) => editingWork ? setEditingWork({ ...editingWork, duration: e.target.value }) : setNewWork({ ...newWork, duration: e.target.value })}
+                          value={
+                            editingWork
+                              ? editingWork.duration
+                              : newWork.duration || ""
+                          }
+                          onChange={(e) =>
+                            editingWork
+                              ? setEditingWork({
+                                  ...editingWork,
+                                  duration: e.target.value,
+                                })
+                              : setNewWork({
+                                  ...newWork,
+                                  duration: e.target.value,
+                                })
+                          }
                           className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                           placeholder="e.g. Jan 2025 - Present"
                         />
@@ -930,11 +1589,27 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Description</label>
+                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                        Description
+                      </label>
                       <textarea
                         rows={2}
-                        value={editingWork ? editingWork.description : newWork.description}
-                        onChange={(e) => editingWork ? setEditingWork({ ...editingWork, description: e.target.value }) : setNewWork({ ...newWork, description: e.target.value })}
+                        value={
+                          editingWork
+                            ? editingWork.description
+                            : newWork.description
+                        }
+                        onChange={(e) =>
+                          editingWork
+                            ? setEditingWork({
+                                ...editingWork,
+                                description: e.target.value,
+                              })
+                            : setNewWork({
+                                ...newWork,
+                                description: e.target.value,
+                              })
+                        }
                         className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400 resize-none"
                         placeholder="Detail core responsibilities or project metrics"
                       />
@@ -944,19 +1619,30 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                       type="submit"
                       className="w-full py-3 bg-[#F4EEE8] text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white cursor-pointer shadow-md"
                     >
-                      {editingWork ? "Save Career details" : "Add Career details"}
+                      {editingWork
+                        ? "Save Career details"
+                        : "Add Career details"}
                     </button>
                   </form>
 
                   {/* Career timeline list */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8]">Current Career Records</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Current Career Records
+                    </h4>
                     <div className="space-y-3">
-                      {workUpdates.map(work => (
-                        <div key={work.id} className="bg-[#1e1e24]/20 border border-white/5 p-4 rounded-xl flex items-center justify-between">
+                      {workUpdates.map((work) => (
+                        <div
+                          key={work.id}
+                          className="bg-[#1e1e24]/20 border border-white/5 p-4 rounded-xl flex items-center justify-between"
+                        >
                           <div>
-                            <h5 className="text-xs font-bold uppercase text-[#F4EEE8]">{work.role}</h5>
-                            <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mt-0.5">{work.company} · {work.duration}</p>
+                            <h5 className="text-xs font-bold uppercase text-[#F4EEE8]">
+                              {work.role}
+                            </h5>
+                            <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mt-0.5">
+                              {work.company} ┬╖ {work.duration}
+                            </p>
                           </div>
                           <div className="flex gap-2">
                             <button
@@ -983,25 +1669,38 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
               {activeTab === "photos" && (
                 <div className="space-y-6">
                   <div className="border-b border-white/5 pb-4">
-                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">Avatar & Recommended Tunes</h3>
-                    <p className="text-xs text-[#A3A3AA]">Refresh your profile image avatar or fine-tune songs showcased in your recommendations grid.</p>
+                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Avatar & Recommended Tunes
+                    </h3>
+                    <p className="text-xs text-[#A3A3AA]">
+                      Refresh your profile image avatar or fine-tune songs
+                      showcased in your recommendations grid.
+                    </p>
                   </div>
 
                   {/* Profile Avatar update */}
-                  <form onSubmit={handleUpdateAvatarDetails} className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                  <form
+                    onSubmit={handleUpdateAvatarDetails}
+                    className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4"
+                  >
                     <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8] flex items-center gap-2">
-                      <Image className="w-4 h-4 text-purple-400" /> profile avatar settings
+                      <Image className="w-4 h-4 text-purple-400" /> profile
+                      avatar settings
                     </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                       <div className="space-y-3">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Avatar Image URL</label>
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Avatar Image URL
+                          </label>
                           <div className="flex gap-2">
                             <input
                               type="text"
                               value={avatar.url}
-                              onChange={(e) => setAvatar({ ...avatar, url: e.target.value })}
+                              onChange={(e) =>
+                                setAvatar({ ...avatar, url: e.target.value })
+                              }
                               className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                               placeholder="Preset photo url"
                             />
@@ -1018,11 +1717,18 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Status Text (Open to work)</label>
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Status Text (Open to work)
+                          </label>
                           <input
                             type="text"
                             value={avatar.statusText}
-                            onChange={(e) => setAvatar({ ...avatar, statusText: e.target.value })}
+                            onChange={(e) =>
+                              setAvatar({
+                                ...avatar,
+                                statusText: e.target.value,
+                              })
+                            }
                             className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                             placeholder="I'm Open to work"
                           />
@@ -1039,7 +1745,9 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                             referrerPolicy="no-referrer"
                           />
                         </div>
-                        <span className="text-[10px] uppercase text-purple-400 tracking-wider mt-2.5 font-black">[{avatar.statusText}]</span>
+                        <span className="text-[10px] uppercase text-purple-400 tracking-wider mt-2.5 font-black">
+                          [{avatar.statusText}]
+                        </span>
                       </div>
                     </div>
 
@@ -1053,30 +1761,63 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                   {/* Songs list upload */}
                   <div className="space-y-4">
-                    <form onSubmit={handleSaveSong} className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                    <form
+                      onSubmit={handleSaveSong}
+                      className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4"
+                    >
                       <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8]">
-                        {editingSong ? "Edit Song details" : "Add Song Recommendation"}
+                        {editingSong
+                          ? "Edit Song details"
+                          : "Add Song Recommendation"}
                       </h4>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Song Title</label>
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Song Title
+                          </label>
                           <input
                             type="text"
                             required
-                            value={editingSong ? editingSong.title : newSong.title}
-                            onChange={(e) => editingSong ? setEditingSong({ ...editingSong, title: e.target.value }) : setNewSong({ ...newSong, title: e.target.value })}
+                            value={
+                              editingSong ? editingSong.title : newSong.title
+                            }
+                            onChange={(e) =>
+                              editingSong
+                                ? setEditingSong({
+                                    ...editingSong,
+                                    title: e.target.value,
+                                  })
+                                : setNewSong({
+                                    ...newSong,
+                                    title: e.target.value,
+                                  })
+                            }
                             className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                             placeholder="e.g. Call Out My Name"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Artist</label>
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Artist
+                          </label>
                           <input
                             type="text"
                             required
-                            value={editingSong ? editingSong.artist : newSong.artist}
-                            onChange={(e) => editingSong ? setEditingSong({ ...editingSong, artist: e.target.value }) : setNewSong({ ...newSong, artist: e.target.value })}
+                            value={
+                              editingSong ? editingSong.artist : newSong.artist
+                            }
+                            onChange={(e) =>
+                              editingSong
+                                ? setEditingSong({
+                                    ...editingSong,
+                                    artist: e.target.value,
+                                  })
+                                : setNewSong({
+                                    ...newSong,
+                                    artist: e.target.value,
+                                  })
+                            }
                             className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                             placeholder="e.g. The Weeknd"
                           />
@@ -1085,22 +1826,54 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Song Spotify URL</label>
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Song Spotify URL
+                          </label>
                           <input
                             type="url"
-                            value={editingSong ? editingSong.spotifyUrl : (newSong.spotifyUrl || "")}
-                            onChange={(e) => editingSong ? setEditingSong({ ...editingSong, spotifyUrl: e.target.value }) : setNewSong({ ...newSong, spotifyUrl: e.target.value })}
+                            value={
+                              editingSong
+                                ? editingSong.spotifyUrl
+                                : newSong.spotifyUrl || ""
+                            }
+                            onChange={(e) =>
+                              editingSong
+                                ? setEditingSong({
+                                    ...editingSong,
+                                    spotifyUrl: e.target.value,
+                                  })
+                                : setNewSong({
+                                    ...newSong,
+                                    spotifyUrl: e.target.value,
+                                  })
+                            }
                             className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                             placeholder="https://open.spotify.com/..."
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">Song Cover Album Image</label>
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Song Cover Album Image
+                          </label>
                           <div className="flex gap-2">
                             <input
                               type="text"
-                              value={editingSong ? editingSong.coverUrl : (newSong.coverUrl || "")}
-                              onChange={(e) => editingSong ? setEditingSong({ ...editingSong, coverUrl: e.target.value }) : setNewSong({ ...newSong, coverUrl: e.target.value })}
+                              value={
+                                editingSong
+                                  ? editingSong.coverUrl
+                                  : newSong.coverUrl || ""
+                              }
+                              onChange={(e) =>
+                                editingSong
+                                  ? setEditingSong({
+                                      ...editingSong,
+                                      coverUrl: e.target.value,
+                                    })
+                                  : setNewSong({
+                                      ...newSong,
+                                      coverUrl: e.target.value,
+                                    })
+                              }
                               className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
                               placeholder="preset image or unsplash URL"
                             />
@@ -1121,16 +1894,23 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                         type="submit"
                         className="w-full py-3 bg-[#F4EEE8] text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white cursor-pointer shadow-md"
                       >
-                        {editingSong ? "Save Song Recommendation" : "Upload Song Recommendation"}
+                        {editingSong
+                          ? "Save Song Recommendation"
+                          : "Upload Song Recommendation"}
                       </button>
                     </form>
 
                     {/* Interactive horizontal display of current songs */}
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8]">Songs List ({songs.length})</h4>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#F4EEE8]">
+                        Songs List ({songs.length})
+                      </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {songs.map(song => (
-                          <div key={song.id} className="bg-[#1e1e24]/20 border border-white/5 p-3 rounded-xl flex gap-3 items-center">
+                        {songs.map((song) => (
+                          <div
+                            key={song.id}
+                            className="bg-[#1e1e24]/20 border border-white/5 p-3 rounded-xl flex gap-3 items-center"
+                          >
                             <img
                               src={song.coverUrl}
                               alt={song.title}
@@ -1138,8 +1918,12 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                               referrerPolicy="no-referrer"
                             />
                             <div className="flex-1 min-w-0">
-                              <h5 className="text-xs font-bold uppercase text-[#F4EEE8] truncate">{song.title}</h5>
-                              <p className="text-[10px] text-[#A3A3AA] truncate">{song.artist}</p>
+                              <h5 className="text-xs font-bold uppercase text-[#F4EEE8] truncate">
+                                {song.title}
+                              </h5>
+                              <p className="text-[10px] text-[#A3A3AA] truncate">
+                                {song.artist}
+                              </p>
                             </div>
                             <div className="flex gap-2">
                               <button
@@ -1162,11 +1946,10 @@ export default function AdminPanel({ isOpen, onClose, onDataChange }: AdminPanel
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         )}
       </motion.div>
-    </div>
+    </Outer>
   );
 }

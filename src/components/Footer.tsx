@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Lock } from "lucide-react";
+import SocialFlipButton from "./SocialFlipButton";
 import { trackActivity } from "../lib/storage";
 
 interface FooterProps {
@@ -17,8 +18,8 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
 
   const handleTrackSocial = (platform: "linkedin" | "github" | "email") => {
     trackActivity(
-      platform === "email" ? "live_click" : "github_click", 
-      `Social Link Click: ${platform} from Footer`
+      platform === "email" ? "live_click" : "github_click",
+      `Social Link Click: ${platform} from Footer`,
     );
   };
 
@@ -28,7 +29,6 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
       className="relative w-full bg-[#0B0B12] px-6 md:px-12 pt-[120px] pb-8 overflow-hidden"
     >
       <div className="max-w-[1600px] mx-auto flex flex-col justify-between">
-        
         {/* Massive Headline LET'S TALK */}
         <div className="w-full text-center mb-16 select-none overflow-hidden">
           <motion.h2
@@ -45,13 +45,13 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
 
         {/* Content Row: Left Question & Right Links */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-20 items-end">
-          
           {/* Left Column (Inquiry & Mail/Call links) */}
           <div className="lg:col-span-8 space-y-6 text-left">
             <p className="text-[#F4EEE8] text-base md:text-lg tracking-wider font-semibold max-w-[500px] uppercase leading-relaxed">
-              GOT A QUESTION, PROPOSAL, PROJECT, OR WANT TO WORK TOGETHER ON SOMETHING?
+              GOT A QUESTION, PROPOSAL, PROJECT, OR WANT TO WORK TOGETHER ON
+              SOMETHING?
             </p>
-            
+
             <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm font-bold tracking-wider uppercase text-[#F4EEE8]">
               <a
                 href="mailto:rohonkumardutta@gmail.com"
@@ -71,9 +71,12 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
           </div>
 
           {/* Right Column (LinkedIn & GitHub links) */}
-          <div className="lg:col-span-4 flex flex-wrap gap-8 md:justify-end text-sm font-bold tracking-wider uppercase">
+          <div className="lg:col-span-4 flex flex-wrap gap-8 md:justify-end text-sm font-bold tracking-wider uppercase items-center">
+            <div className="mr-4">
+              <SocialFlipButton className="hidden md:flex" />
+            </div>
             <a
-              href="https://linkedin.com/in/syed-moinuddin106"
+              href="https://linkedin.com/in/rohon-kumar-dutta"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => handleTrackSocial("linkedin")}
@@ -83,7 +86,7 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
               <span className="absolute bottom-0 left-0 w-0 h-[1.5px] bg-[#F4EEE8] transition-all duration-300 group-hover:w-full" />
             </a>
             <a
-              href="https://github.com/syed-moinuddin106"
+              href="https://github.com/rohonDutta/"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => handleTrackSocial("github")}
@@ -93,7 +96,6 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
               <span className="absolute bottom-0 left-0 w-0 h-[1.5px] bg-[#F4EEE8] transition-all duration-300 group-hover:w-full" />
             </a>
           </div>
-
         </div>
 
         {/* Bottom copyright details & credits */}
@@ -113,16 +115,15 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
           <div className="text-[#A8A8B0]/80">
             NEED A HELP IN WEBSITE DM ME{" "}
             <a
-              href="https://linkedin.com/in/syed-moinuddin106"
+              href="https://linkedin.com/in/rohon-kumar-dutta"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#F4EEE8] hover:underline"
             >
-              SYED MOINUDDIN
+              ROHON KUMAR DUTTA
             </a>
           </div>
         </div>
-
       </div>
     </footer>
   );

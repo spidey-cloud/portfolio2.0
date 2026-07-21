@@ -5,57 +5,30 @@ import { Project, Testimonial, Song } from "./types";
 export const PROJECTS: Project[] = [
   {
     id: "1",
-    title: "Ayo Remi",
-    description: "This is a modern e-commerce website designed as a replica of the United Store platform, featuring full SEO optimization, improved performance, and built using WordPress, Next.js, and TypeScript.",
-    image: "/src/assets/images/ayo_remi_laptop_1784406155891.jpg",
-    techStack: ["React", "Tailwind CSS", "Framer Motion"],
-    githubUrl: "https://github.com/syed-moinuddin106/ayo-remi",
-    liveUrl: "https://ayo-remi.vercel.app"
+    title: "AI Money Mentor",
+    description: "A full-stack multi-agent financial assistant powered by Google Gemini 2.0 Flash. Features an Orchestrator with Health, Tax, and FIRE domain agents, a Tax Wizard with Old vs. New regime comparison and deduction modeling (80C, 80D, NPS, HRA), and a FIRE Path Planner generating month-by-month SIP and asset allocation roadmaps.",
+    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80&auto=format&fit=crop",
+    techStack: ["React", "Node.js", "Express.js", "Gemini 2.0 Flash"],
+    githubUrl: "https://github.com/Rohon-kumar-dutta/ai-money-mentor",
+    liveUrl: "https://money-mentor-final.vercel.app/"
   },
   {
     id: "2",
-    title: "MechX-AI",
-    description: "This is a next-generation engineering platform designed to automate mechanical tasks, offering breakthrough projects, ready-to-use solutions, and collaboration opportunities for building future mechatronics innovations.",
-    image: "/src/assets/images/mechx_ai_laptop_1784406171114.jpg",
-    techStack: ["React", "Tailwind CSS", "Framer Motion"],
-    githubUrl: "https://github.com/syed-moinuddin106/mechx-ai",
-    liveUrl: "https://mechx-ai.vercel.app"
+    title: "FitLife",
+    description: "An offline-first Android fitness app built with MVVM and Clean Architecture to manage workouts, diet, and wellbeing. Integrates Google Health Connect SDK for bi-directional health data sync, Room DB and WorkManager for persistent storage, and features a Material 3 UI with dynamic colors, interactive charts, and an ML Kit powered barcode scanner.",
+    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80&auto=format&fit=crop",
+    techStack: ["Kotlin", "Jetpack Compose", "Health Connect", "Room", "Hilt"],
+    githubUrl: "https://github.com/Rohon-kumar-dutta/fitlife",
+    liveUrl: "https://fitlife-d.pages.dev/"
   },
   {
     id: "3",
-    title: "Zenith Solar",
-    description: "This is a landing page created for a solar energy company to strengthen their digital presence and showcase innovative solutions for capturing, storing, and utilizing solar power.",
-    image: "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&q=80&auto=format&fit=crop",
-    techStack: ["React", "Next.js", "GSAP"],
-    githubUrl: "https://github.com/syed-moinuddin106/zenith-solar",
-    liveUrl: "https://zenith-solar.vercel.app"
-  },
-  {
-    id: "4",
-    title: "Nova Solar",
-    description: "This is a landing page developed for Solarnova to showcase their innovative clean energy solutions, empowering homes, businesses, and communities to thrive sustainably.",
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80&auto=format&fit=crop",
-    techStack: ["Next.js", "TypeScript", "Prisma"],
-    githubUrl: "https://github.com/syed-moinuddin106/nova-solar",
-    liveUrl: "https://nova-solar.vercel.app"
-  },
-  {
-    id: "5",
-    title: "Quantum Dock",
-    description: "This is a website for an AI startup designed to present cutting-edge AI-driven data processing solutions, enabling seamless integration with multiple providers, workflow automation, and data unification.",
-    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80&auto=format&fit=crop",
-    techStack: ["Next.js", "TypeScript", "Prisma"],
-    githubUrl: "https://github.com/syed-moinuddin106/quantum-dock",
-    liveUrl: "https://quantum-dock.vercel.app"
-  },
-  {
-    id: "6",
-    title: "Dev-Creations",
-    description: "This is a website redesign for Dev-Creations, where I utilized modern tech stacks and applied my own UI/UX design knowledge to create a more contemporary, user-friendly look and feel.",
-    image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&q=80&auto=format&fit=crop",
-    techStack: ["Next.js", "TypeScript", "Prisma"],
-    githubUrl: "https://github.com/syed-moinuddin106/dev-creations",
-    liveUrl: "https://dev-creations.vercel.app"
+    title: "Online Mechanic Booking System",
+    description: "A Django-based web application developed during internship at Euphoria Genx. Features user registration, booking requests, and service management with full backend logic, database integration, and web application development.",
+    image: "https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=800&q=80&auto=format&fit=crop",
+    techStack: ["Python", "Django", "SQLite", "HTML", "CSS"],
+    githubUrl: "https://github.com/Rohon-kumar-dutta",
+    liveUrl: "#"
   }
 ];
 
@@ -137,17 +110,13 @@ export const RECOMMENDED_SONGS: Song[] = [
 ];
 
 export const FRONTEND_TOOLS = [
-  "JavaScript (ES6+)", "React", "Next.js", "TypeScript", "Prismic CMS", 
-  "Redux", "Redux Toolkit", "React Testing Library", "Vitest", "HTML5", 
-  "Git/GitHub", "NextAuth", "Formik"
+  "HTML5", "CSS3", "JavaScript (ES6+)", "TypeScript", "React", "Next.js", "Git/GitHub"
 ];
 
 export const BACKEND_TOOLS = [
-  "Node.js", "Express.js", "Supabase", "Firebase", "Prisma ORM", 
-  "PlanetScale", "REST APIs", "PostgreSQL", "MongoDB", "Stripe Integration"
+  "Node.js", "Express.js", "Django", "Python", "MongoDB", "REST APIs"
 ];
 
 export const UI_LIBRARIES = [
-  "CSS3/SCSS/SASS", "Tailwind CSS", "Material UI", "Framer Motion", 
-  "GSAP", "Bootstrap", "Chart.js"
+  "ReactJS", "NextJS", "NodeJS", "ExpressJS", "Tailwind CSS", "Framer Motion"
 ];

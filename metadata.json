@@ -1,6 +1,5 @@
 {
-  "name": "Syed Moinuddin Portfolio",
-  "description": "The professional creative portfolio of Syed Moinuddin, showcasing engineering work, projects, and design systems.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Rohon Kumar Dutta Portfolio",
+  "description": "A personal portfolio website for Rohon Kumar Dutta showcasing projects, skills, and an admin panel.",
+  "requestFramePermissions": []
 }

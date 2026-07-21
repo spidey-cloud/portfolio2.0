@@ -1,12 +1,21 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { loadSkills, loadWorkUpdates, loadResume, trackActivity } from "../lib/storage";
+import {
+  loadSkills,
+  loadWorkUpdates,
+  loadResume,
+  trackActivity,
+} from "../lib/storage";
 import { FileText, ExternalLink } from "lucide-react";
 
 export default function About() {
   const [skills, setSkills] = useState<any[]>([]);
   const [workUpdates, setWorkUpdates] = useState<any[]>([]);
-  const [resume, setResume] = useState<any>({ url: "", fileName: "", updatedAt: "" });
+  const [resume, setResume] = useState<any>({
+    url: "",
+    fileName: "",
+    updatedAt: "",
+  });
 
   useEffect(() => {
     // Load dynamic contents on component mount
@@ -26,9 +35,9 @@ export default function About() {
       opacity: 1,
       transition: {
         staggerChildren: 0.12,
-        delayChildren: 0.1
-      }
-    }
+        delayChildren: 0.1,
+      },
+    },
   };
 
   const itemVariants = {
@@ -36,8 +45,8 @@ export default function About() {
     visible: {
       y: 0,
       opacity: 1,
-      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
-    }
+      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+    },
   };
 
   return (
@@ -60,10 +69,10 @@ export default function About() {
           className="mb-[80px]"
         >
           <h2 className="text-[#F4EEE8] font-black tracking-[-0.04em] uppercase leading-[0.9] text-[40px] sm:text-[60px] md:text-[80px] lg:text-[96px] max-w-[1300px]">
+            About Me
           </h2>
         </motion.div>
 
-        {/* Two-Column Content Grid */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -77,25 +86,35 @@ export default function About() {
               variants={itemVariants}
               className="text-[#F4EEE8] text-lg md:text-[22px] font-light leading-relaxed"
             >
-              I'm a full-stack developer and Android engineer with experience building AI-powered web apps and offline-first mobile applications.
+              I am a full-stack developer and Android engineer who builds
+              polished web experiences, AI-powered tools, and mobile
+              applications that feel fast and intuitive.
             </motion.p>
 
             <motion.p
               variants={itemVariants}
               className="text-[#A8A8B0] text-lg md:text-[22px] font-light leading-relaxed"
             >
-              Currently pursuing B.Tech in IT at JIS College of Engineering, Kalyani. I previously completed a Diploma in CST with a CGPA of 8.4, and interned as a Python Django developer at Euphoria Genx.
+              Currently pursuing a B.Tech in IT at JIS College of Engineering,
+              Kalyani, I also completed a Diploma in CST with a CGPA of 8.4 and
+              gained hands-on experience as a Python Django intern at Euphoria
+              Genx.
             </motion.p>
 
             <motion.p
               variants={itemVariants}
               className="text-[#A8A8B0] text-lg md:text-[22px] font-light leading-relaxed"
             >
-              When I'm away from the keyboard, I enjoy exploring new ideas, diving into anime, and spending time with friends.
+              Outside development, I enjoy exploring new tech ideas, staying
+              curious about emerging trends, and recharging with anime and time
+              spent with friends.
             </motion.p>
 
             {/* Dynamic Interactive Resume Button */}
-            <motion.div variants={itemVariants} className="pt-6 border-t border-white/5">
+            <motion.div
+              variants={itemVariants}
+              className="pt-6 border-t border-white/5"
+            >
               <a
                 href={resume.url || "#"}
                 target="_blank"
@@ -119,7 +138,10 @@ export default function About() {
                 </h3>
                 <div className="space-y-6 pl-1 border-l border-white/10">
                   {workUpdates.map((work: any) => (
-                    <div key={work.id} className="relative pl-6 space-y-1.5 group">
+                    <div
+                      key={work.id}
+                      className="relative pl-6 space-y-1.5 group"
+                    >
                       {/* Timeline dot */}
                       <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-purple-400 border border-[#0B0B12] group-hover:scale-125 transition-transform" />
 
@@ -139,7 +161,8 @@ export default function About() {
                           rel="noopener noreferrer"
                           className="text-xs font-semibold text-purple-400 hover:underline uppercase tracking-widest flex items-center gap-1"
                         >
-                          {work.company} <ExternalLink className="w-2.5 h-2.5" />
+                          {work.company}{" "}
+                          <ExternalLink className="w-2.5 h-2.5" />
                         </a>
                       </div>
 
@@ -156,7 +179,11 @@ export default function About() {
           {/* Right Column: Dynamic Stack & Tools lists */}
           <div className="lg:col-span-5 space-y-12">
             {skills.map((category: any) => (
-              <motion.div key={category.id} variants={itemVariants} className="space-y-4">
+              <motion.div
+                key={category.id}
+                variants={itemVariants}
+                className="space-y-4"
+              >
                 <h3 className="text-[#F4EEE8] text-base md:text-lg font-bold tracking-wider uppercase">
                   {category.title}
                 </h3>

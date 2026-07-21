@@ -128,7 +128,7 @@ export default function BookCall() {
             transition={{ duration: 0.8 }}
             className="text-[#F4EEE8] font-black tracking-[-0.03em] uppercase leading-none text-4xl sm:text-5xl md:text-6xl"
           >
-            CONNECT WITH ME. BUILD FAST.
+            CONNECT WITH ME.
           </motion.h2>
 
           <motion.p
@@ -139,7 +139,7 @@ export default function BookCall() {
             className="text-[#A8A8B0] text-base md:text-lg font-light max-w-[750px] mx-auto leading-relaxed"
           >
             I am available for freelance work and full-time opportunities. Book
-            a strategy call to discuss your next big idea.
+            a strategy call to discuss next big idea.
           </motion.p>
         </div>
 

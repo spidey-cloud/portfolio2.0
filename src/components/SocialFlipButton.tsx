@@ -33,17 +33,17 @@ const defaultItems: SocialItem[] = [
     letter: "C",
     icon: <FaGithub />,
     label: "Github",
-    href: "https://github.com/Rohon-kumar-dutta",
+    href: "https://github.com/spidey-cloud",
   },
   { letter: "O", icon: <FaTwitter />, label: "Twitter", href: "#" },
   {
     letter: "N",
     icon: <FaLinkedin />,
     label: "LinkedIn",
-    href: "https://linkedin.com/in/rohon-kumar-dutta",
+    href: "https://linkedin.com/in/rohon-kumar-dutta", target:"_blank"
   },
-  { letter: "T", icon: <FaInstagram />, label: "Instagram", href: "#" },
-  { letter: "A", icon: <FaFacebook />, label: "Facebook", href: "#" },
+  { letter: "T", icon: <FaInstagram />, label: "Instagram", href: "https://www.instagram.com/rohon.dutta_official/", target:"_blank" },
+  { letter: "A", icon: <FaFacebook />, label: "Facebook", href: "https://www.facebook.com/share/19Se7gWe1h/", target:"_blank" },
   {
     letter: "C",
     icon: <FaEnvelope />,

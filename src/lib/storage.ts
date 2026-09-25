@@ -196,7 +196,7 @@ export function loadResume() {
     !parsed.url ||
     parsed.url.includes("/view?usp=sharing") ||
     parsed.url.includes("uc?export=download") ||
-    (parsed.fileName && parsed.fileName.toLowerCase().includes("syed"))
+    (parsed.fileName && parsed.fileName.toLowerCase().includes("Rohon"))
   ) {
     localStorage.setItem("portfolio_resume", JSON.stringify(DEFAULT_RESUME));
     return DEFAULT_RESUME;

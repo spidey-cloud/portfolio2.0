@@ -86,7 +86,7 @@ export default function Footer({ onOpenAdmin }: FooterProps) {
               <span className="absolute bottom-0 left-0 w-0 h-[1.5px] bg-[#F4EEE8] transition-all duration-300 group-hover:w-full" />
             </a>
             <a
-              href="https://github.com/rohonDutta/"
+              href="https://github.com/spidey-cloud"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => handleTrackSocial("github")}

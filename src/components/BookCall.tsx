@@ -21,7 +21,11 @@ import {
 } from "../lib/validate";
 
 export default function BookCall() {
-  const [selectedDate, setSelectedDate] = useState<number>(1);
+  const today = new Date();
+
+  // 1. Dynamic Date State initialization
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<number>(() => today.getDate());
   const [use24h, setUse24h] = useState<boolean>(false);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isBookingConfirmed, setIsBookingConfirmed] = useState<boolean>(false);
@@ -32,31 +36,80 @@ export default function BookCall() {
   });
   const [formErrors, setFormErrors] = useState({ name: "", email: "" });
 
-  const daysInAugust = Array.from({ length: 31 }, (_, i) => i + 1);
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth(); // 0-indexed
 
-  // August 2026 starts on a Saturday, so there are 5 blank cells in the first week
-  const blankDays = 5;
+  // Check if viewing the current month & year
+  const isCurrentMonth =
+    year === today.getFullYear() && month === today.getMonth();
+
+  // 2. Dynamic Calendar calculations
+  const monthName = currentDate.toLocaleString("default", { month: "long" });
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysArray = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
+  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sun
 
   const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
   const timeSlots = [
-    { id: "1", time12: "10:00 AM", time24: "10:00" },
-    { id: "2", time12: "11:30 AM", time24: "11:30" },
-    { id: "3", time12: "02:00 PM", time24: "14:00" },
-    { id: "4", time12: "03:30 PM", time24: "15:30" },
-    { id: "5", time12: "05:00 PM", time24: "17:00" },
+    { id: "1", time12: "10:00 AM", time24: "10:00", hours: 10, minutes: 0 },
+    { id: "2", time12: "11:30 AM", time24: "11:30", hours: 11, minutes: 30 },
+    { id: "3", time12: "02:00 PM", time24: "14:00", hours: 14, minutes: 0 },
+    { id: "4", time12: "03:30 PM", time24: "15:30", hours: 15, minutes: 30 },
+    { id: "5", time12: "05:00 PM", time24: "17:00", hours: 17, minutes: 0 },
   ];
 
+  // Helper: Check if a given day in the current month is before today
+  const isDateInPast = (day: number) => {
+    const checkDate = new Date(year, month, day, 23, 59, 59, 999);
+    return checkDate.getTime() < today.getTime();
+  };
+
+  // Helper: Check if a specific time slot on the selected date is in the past
+  const isTimeSlotInPast = (hours: number, minutes: number) => {
+    const slotDate = new Date(year, month, selectedDate, hours, minutes);
+    return slotDate.getTime() <= today.getTime();
+  };
+
+  // Month navigation handlers
+  const handlePrevMonth = () => {
+    if (isCurrentMonth) return; // Prevent navigating to past months
+    const prevDate = new Date(year, month - 1, 1);
+    setCurrentDate(prevDate);
+
+    // Default selection logic for new month
+    if (prevDate.getFullYear() === today.getFullYear() && prevDate.getMonth() === today.getMonth()) {
+      setSelectedDate(today.getDate());
+    } else {
+      setSelectedDate(1);
+    }
+    setSelectedTime(null);
+  };
+
+  const handleNextMonth = () => {
+    const nextDate = new Date(year, month + 1, 1);
+    setCurrentDate(nextDate);
+
+    if (nextDate.getFullYear() === today.getFullYear() && nextDate.getMonth() === today.getMonth()) {
+      setSelectedDate(today.getDate());
+    } else {
+      setSelectedDate(1);
+    }
+    setSelectedTime(null);
+  };
+
   const handleDateClick = (day: number) => {
+    if (isDateInPast(day)) return;
     setSelectedDate(day);
     setSelectedTime(null);
   };
 
-  const handleTimeClick = (time: string) => {
+  const handleTimeClick = (time: string, isPast: boolean) => {
+    if (isPast) return;
     setSelectedTime(time);
     trackActivity(
       "book_call_attempt",
-      `Selected slot ${time} for August ${selectedDate}, 2026`,
+      `Selected slot ${time} for ${monthName} ${selectedDate}, ${year}`,
     );
   };
 
@@ -64,7 +117,6 @@ export default function BookCall() {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    // Enforce per-field length limits while typing
     const limits: Record<string, number> = { name: 80, email: 100, notes: 400 };
     const limited = value.slice(0, limits[name] ?? 200);
     setBookingDetails((prev) => ({ ...prev, [name]: limited }));
@@ -87,7 +139,6 @@ export default function BookCall() {
       return;
     }
 
-    // Sanitize notes before storing in activity log
     const safeNotes = notesV.ok
       ? notesV.value
       : sanitizeText(bookingDetails.notes).slice(0, 400);
@@ -105,12 +156,10 @@ export default function BookCall() {
     setBookingDetails({ name: "", email: "", notes: "" });
   };
 
-  // Helper to format selected day label
   const getSelectedDayString = () => {
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    // August 1, 2026 is Saturday (index 6)
-    const dayOfWeekIndex = (6 + (selectedDate - 1)) % 7;
-    return `${dayNames[dayOfWeekIndex]} ${selectedDate.toString().padStart(2, "0")}`;
+    const targetDate = new Date(year, month, selectedDate);
+    const dayName = targetDate.toLocaleString("default", { weekday: "short" });
+    return `${dayName} ${selectedDate.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -119,7 +168,6 @@ export default function BookCall() {
       className="relative w-full py-[160px] bg-[#0B0B12] px-6 md:px-12 overflow-hidden border-b border-white/5"
     >
       <div className="max-w-[1600px] mx-auto">
-        {/* Section Header */}
         <div className="text-center space-y-6 mb-16">
           <motion.h2
             initial={{ y: 30, opacity: 0 }}
@@ -143,7 +191,6 @@ export default function BookCall() {
           </motion.p>
         </div>
 
-        {/* Calendar Card Wrap */}
         <motion.div
           initial={{ y: 50, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
@@ -157,7 +204,6 @@ export default function BookCall() {
                 {/* Left Panel: Event Info */}
                 <div className="lg:col-span-4 lg:border-r lg:border-white/5 lg:pr-10 space-y-6 flex flex-col justify-between">
                   <div className="space-y-6">
-                    {/* Header Agency Brand info */}
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
                         <span className="text-purple-400 text-xs font-black">
@@ -174,12 +220,10 @@ export default function BookCall() {
                       </div>
                     </div>
 
-                    {/* Event Name */}
                     <h3 className="text-xl md:text-2xl font-black text-[#F4EEE8] tracking-tight leading-tight">
                       30 Minute Strategy Call
                     </h3>
 
-                    {/* Metadata Items */}
                     <div className="space-y-3.5 text-xs text-[#A8A8B0] font-light">
                       <div className="flex items-center gap-2.5">
                         <Clock className="w-4 h-4 text-purple-400" />
@@ -194,11 +238,8 @@ export default function BookCall() {
                         <span>Asia/Kolkata GMT+05:30</span>
                       </div>
                     </div>
-
-                    {/* Promo Info */}
                   </div>
 
-                  {/* Powered By Branding */}
                   <div className="text-[10px] text-white/20 uppercase tracking-widest pt-4 lg:pt-0">
                     Cal.com Mockup
                   </div>
@@ -208,13 +249,23 @@ export default function BookCall() {
                 <div className="lg:col-span-5 space-y-6">
                   <div className="flex items-center justify-between">
                     <h4 className="text-[#F4EEE8] font-bold text-sm tracking-wide">
-                      August 2026
+                      {monthName} {year}
                     </h4>
                     <div className="flex items-center gap-2">
-                      <button className="w-8 h-8 rounded-full border border-white/5 hover:border-white/20 flex items-center justify-center text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer">
+                      <button
+                        onClick={handlePrevMonth}
+                        disabled={isCurrentMonth}
+                        className={`w-8 h-8 rounded-full border border-white/5 flex items-center justify-center transition-all ${isCurrentMonth
+                            ? "opacity-20 cursor-not-allowed text-white/20"
+                            : "hover:border-white/20 text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer"
+                          }`}
+                      >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
-                      <button className="w-8 h-8 rounded-full border border-white/5 hover:border-white/20 flex items-center justify-center text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer">
+                      <button
+                        onClick={handleNextMonth}
+                        className="w-8 h-8 rounded-full border border-white/5 hover:border-white/20 flex items-center justify-center text-[#A8A8B0] hover:text-[#F4EEE8] cursor-pointer transition-all"
+                      >
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -234,29 +285,33 @@ export default function BookCall() {
 
                   {/* Calendar Grid */}
                   <div className="grid grid-cols-7 gap-2">
-                    {/* Blank slots */}
-                    {Array.from({ length: blankDays }).map((_, i) => (
+                    {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                       <div key={`blank-${i}`} className="aspect-square" />
                     ))}
 
-                    {/* Day numbers */}
-                    {daysInAugust.map((day) => {
+                    {daysArray.map((day) => {
                       const isSelected = selectedDate === day;
+                      const disabled = isDateInPast(day);
+
                       return (
                         <button
                           key={day}
                           onClick={() => handleDateClick(day)}
-                          className={`aspect-square rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 relative cursor-pointer ${
-                            isSelected
-                              ? "bg-[#F4EEE8] text-[#0B0B12]"
-                              : "text-[#F4EEE8] hover:bg-white/5 border border-transparent hover:border-white/10"
-                          }`}
+                          disabled={disabled}
+                          className={`aspect-square rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 relative ${disabled
+                              ? "text-white/10 opacity-30 cursor-not-allowed line-through"
+                              : isSelected
+                                ? "bg-[#F4EEE8] text-[#0B0B12] cursor-pointer"
+                                : "text-[#F4EEE8] hover:bg-white/5 border border-transparent hover:border-white/10 cursor-pointer"
+                            }`}
                         >
                           {day}
-                          {/* Green indicator for custom offer availability */}
-                          <span
-                            className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isSelected ? "bg-purple-600" : "bg-emerald-400"}`}
-                          />
+                          {!disabled && (
+                            <span
+                              className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isSelected ? "bg-purple-600" : "bg-emerald-400"
+                                }`}
+                            />
+                          )}
                         </button>
                       );
                     })}
@@ -270,7 +325,6 @@ export default function BookCall() {
                       <h4 className="text-[#F4EEE8] font-bold text-sm uppercase tracking-wider">
                         {getSelectedDayString()}
                       </h4>
-                      {/* 12h / 24h switch */}
                       <button
                         onClick={() => setUse24h(!use24h)}
                         className="text-[10px] text-[#A8A8B0] border border-white/10 px-2.5 py-1 rounded-full cursor-pointer hover:border-white/30 transition-all"
@@ -279,7 +333,6 @@ export default function BookCall() {
                       </button>
                     </div>
 
-                    {/* Time slots List / Booking Form */}
                     <AnimatePresence mode="wait">
                       {!selectedTime ? (
                         <motion.div
@@ -289,19 +342,31 @@ export default function BookCall() {
                           exit={{ opacity: 0, x: -20 }}
                           className="space-y-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide"
                         >
-                          {timeSlots.map((slot) => (
-                            <button
-                              key={slot.id}
-                              onClick={() =>
-                                handleTimeClick(
-                                  use24h ? slot.time24 : slot.time12,
-                                )
-                              }
-                              className="w-full text-center py-3 rounded-xl border border-white/5 bg-[#20242F]/30 hover:bg-[#20242F]/80 text-[#F4EEE8] text-xs font-semibold cursor-pointer tracking-wider hover:border-white/20 transition-all duration-300"
-                            >
-                              {use24h ? slot.time24 : slot.time12}
-                            </button>
-                          ))}
+                          {timeSlots.map((slot) => {
+                            const isPast = isTimeSlotInPast(
+                              slot.hours,
+                              slot.minutes,
+                            );
+                            const displayTime = use24h
+                              ? slot.time24
+                              : slot.time12;
+
+                            return (
+                              <button
+                                key={slot.id}
+                                disabled={isPast}
+                                onClick={() =>
+                                  handleTimeClick(displayTime, isPast)
+                                }
+                                className={`w-full text-center py-3 rounded-xl border text-xs font-semibold tracking-wider transition-all duration-300 ${isPast
+                                    ? "bg-[#20242F]/10 border-white/5 text-white/20 opacity-40 cursor-not-allowed line-through"
+                                    : "border-white/5 bg-[#20242F]/30 hover:bg-[#20242F]/80 text-[#F4EEE8] cursor-pointer hover:border-white/20"
+                                  }`}
+                              >
+                                {displayTime} {isPast && "(Passed)"}
+                              </button>
+                            );
+                          })}
                         </motion.div>
                       ) : (
                         <motion.form
@@ -317,7 +382,6 @@ export default function BookCall() {
                             <span>Booking for {selectedTime}</span>
                           </div>
 
-                          {/* Input Name */}
                           <div className="space-y-1.5">
                             <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
                               <User className="w-3 h-3 text-purple-400" /> Name
@@ -337,7 +401,6 @@ export default function BookCall() {
                             )}
                           </div>
 
-                          {/* Input Email */}
                           <div className="space-y-1.5">
                             <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
                               <Mail className="w-3 h-3 text-purple-400" /> Email
@@ -357,7 +420,6 @@ export default function BookCall() {
                             )}
                           </div>
 
-                          {/* Notes Textarea */}
                           <div className="space-y-1.5">
                             <label className="text-[10px] text-[#A8A8B0] font-bold tracking-wider uppercase flex items-center gap-1.5">
                               <MessageSquare className="w-3 h-3 text-purple-400" />{" "}
@@ -373,7 +435,6 @@ export default function BookCall() {
                             />
                           </div>
 
-                          {/* Action Buttons */}
                           <div className="flex items-center gap-2.5 pt-2">
                             <button
                               type="button"
@@ -396,7 +457,6 @@ export default function BookCall() {
                 </div>
               </div>
             ) : (
-              // Booking Confirmed Screen
               <motion.div
                 key="confirmation"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -419,7 +479,7 @@ export default function BookCall() {
                     </strong>
                     , your meeting has been successfully booked for{" "}
                     <strong className="text-[#F4EEE8] font-semibold">
-                      {getSelectedDayString()} @ {selectedTime}
+                      {getSelectedDayString()} {monthName} @ {selectedTime}
                     </strong>
                     . A calendar invite has been sent to{" "}
                     <strong className="text-[#F4EEE8] font-semibold">

@@ -5,6 +5,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rohon kumar Dutta</title>
+  <!-- Theme init: runs synchronously before render to prevent flash -->
+  <script>
+    (function () {
+      var saved = localStorage.getItem('portfolio-theme');
+      // Default to light if no preference has ever been saved
+      if (!saved) {
+        localStorage.setItem('portfolio-theme', 'light');
+        saved = 'light';
+      }
+      if (saved === 'light') {
+        document.documentElement.classList.add('light-theme');
+      }
+    })();
+  </script>
 </head>
 
 <body>

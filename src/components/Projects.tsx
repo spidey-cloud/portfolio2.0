@@ -160,15 +160,28 @@ function TiltProjectCard({ project, index }: { project: Project; index: number }
 
               {/* Screenshot */}
               <div className="w-full h-full rounded-t-[8px] overflow-hidden bg-[#121214] relative">
-                <img
-                  src={project.image}
-                  alt={`${project.title} screenshot`}
-                  className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
-                    isHovered ? "scale-105" : "scale-100"
-                  }`}
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                />
+                {project.videoUrl ? (
+                  <video
+                    src={project.videoUrl}
+                    className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                      isHovered ? "scale-105" : "scale-100"
+                    }`}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={project.image}
+                    alt={`${project.title} screenshot`}
+                    className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                      isHovered ? "scale-105" : "scale-100"
+                    }`}
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                  />
+                )}
 
                 {/* Overlay with quick-access links on hover */}
                 <div

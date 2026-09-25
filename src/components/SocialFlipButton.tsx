@@ -103,13 +103,11 @@ const SocialFlipNode = ({
         initial={false}
         animate={{ rotateY: isHovered ? 180 : 0 }}
         transition={{
-          duration: 1.2,
-          type: "spring",
-          stiffness: 80,
-          damping: 20,
-          delay: index * 0.12,
+          duration: 0.35,
+          ease: "easeInOut",
+          delay: index * 0.04,
         }}
-        style={{ transformStyle: "preserve-3d" }}
+        style={{ transformStyle: "preserve-3d", willChange: "transform" }}
       >
         {/* Front - Letter */}
         <div

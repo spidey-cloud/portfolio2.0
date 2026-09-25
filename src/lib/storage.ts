@@ -1,5 +1,12 @@
 import { Project, Song, Testimonial } from "../types";
-import { PROJECTS as INITIAL_PROJECTS, RECOMMENDED_SONGS, TESTIMONIALS as INITIAL_TESTIMONIALS, FRONTEND_TOOLS, BACKEND_TOOLS, UI_LIBRARIES } from "../data";
+import {
+  PROJECTS as INITIAL_PROJECTS,
+  RECOMMENDED_SONGS,
+  TESTIMONIALS as INITIAL_TESTIMONIALS,
+  FRONTEND_TOOLS,
+  BACKEND_TOOLS,
+  UI_LIBRARIES,
+} from "../data";
 import { safeJsonParse, sanitizeText } from "./validate";
 
 export interface WorkUpdate {
@@ -20,7 +27,14 @@ export interface SkillCategory {
 export interface ActivityLog {
   id: string;
   timestamp: string;
-  type: "page_view" | "project_click" | "github_click" | "live_click" | "resume_download" | "book_call_attempt" | "book_call_success";
+  type:
+    | "page_view"
+    | "project_click"
+    | "github_click"
+    | "live_click"
+    | "resume_download"
+    | "book_call_attempt"
+    | "book_call_success";
   details: string;
 }
 
@@ -28,7 +42,7 @@ export interface ActivityLog {
 const DEFAULT_SKILLS: SkillCategory[] = [
   { id: "frontend", title: "Frontend Tools", items: FRONTEND_TOOLS },
   { id: "backend", title: "Backend Tools", items: BACKEND_TOOLS },
-  { id: "ui", title: "UI & Animation Libraries", items: UI_LIBRARIES }
+  { id: "ui", title: "UI & Animation Libraries", items: UI_LIBRARIES },
 ];
 
 const DEFAULT_WORK_UPDATES: WorkUpdate[] = [
@@ -38,25 +52,27 @@ const DEFAULT_WORK_UPDATES: WorkUpdate[] = [
     company: "Euphoria Genx",
     companyUrl: "",
     duration: "Jun 2023 – Oct 2023",
-    description: "Completed a Skill Development and Internship Programme focused on Python and Django. Developed an Online Mechanic Booking System with user registration, booking requests, and service management. Worked with backend logic, database integration, and full-stack web development concepts."
-  }
+    description:
+      "Completed a Skill Development and Internship Programme focused on Python and Django. Developed an Online Mechanic Booking System with user registration, booking requests, and service management. Worked with backend logic, database integration, and full-stack web development concepts.",
+  },
 ];
 
 const DEFAULT_RESUME = {
   url: "https://drive.google.com/file/d/1cUzR0BLUjVMcTU5-B24ATuPsCsG0YtCl/preview",
   fileName: "Rohon-Kumar-Dutta-Resume.pdf",
-  updatedAt: "2026-07-19"
+  updatedAt: "2026-07-19",
 };
 
 const DEFAULT_AVATAR = {
-  url: "/src/assets/images/profile_avatar_1784406141109.jpg",
-  statusText: "I'm Open to work"
+  url: "/static/images/profile_avatar_1784406141109.jpg",
+  statusText: "I'm Open to work",
 };
 
 // ---------------------------------------------------------------------------
 // URL safety guard — strips any javascript: / data: href before rendering
 // ---------------------------------------------------------------------------
-const SAFE_URL_RE = /^(https?:\/\/|\/|data:image\/(jpeg|png|webp|gif);base64,)/i;
+const SAFE_URL_RE =
+  /^(https?:\/\/|\/|data:image\/(jpeg|png|webp|gif);base64,)/i;
 
 function safeUrl(url: unknown, fallback = ""): string {
   if (typeof url !== "string") return fallback;
@@ -74,11 +90,14 @@ export function loadProjects(): Project[] {
   const raw = localStorage.getItem("portfolio_projects");
   const parsed = safeJsonParse<Project[]>(raw, INITIAL_PROJECTS);
   if (!Array.isArray(parsed)) {
-    localStorage.setItem("portfolio_projects", JSON.stringify(INITIAL_PROJECTS));
+    localStorage.setItem(
+      "portfolio_projects",
+      JSON.stringify(INITIAL_PROJECTS),
+    );
     return INITIAL_PROJECTS;
   }
   // Sanitize every project's URL fields before returning
-  const safe = parsed.map(p => ({
+  const safe = parsed.map((p) => ({
     ...p,
     title: sanitizeText(p.title),
     description: sanitizeText(p.description),
@@ -101,7 +120,11 @@ export function loadSkills(): SkillCategory[] {
     return DEFAULT_SKILLS;
   }
   // Reset if stored data still has the old frontend-heavy skill set
-  if (parsed.length > 0 && parsed[0].items && parsed[0].items.includes("Prismic CMS")) {
+  if (
+    parsed.length > 0 &&
+    parsed[0].items &&
+    parsed[0].items.includes("Prismic CMS")
+  ) {
     localStorage.setItem("portfolio_skills", JSON.stringify(DEFAULT_SKILLS));
     return DEFAULT_SKILLS;
   }
@@ -120,11 +143,11 @@ export function loadSongs(): Song[] {
     return RECOMMENDED_SONGS;
   }
   // Sanitize song URL fields
-  return parsed.map(s => ({
+  return parsed.map((s) => ({
     ...s,
     title: sanitizeText(s.title),
     artist: sanitizeText(s.artist),
-    spotifyUrl: safeUrl(s.spotifyUrl, "https://spotify.com"),
+    youtubeUrl: safeUrl(s.youtubeUrl, "https://youtube.com"),
     coverUrl: safeUrl(s.coverUrl, ""),
   }));
 }
@@ -137,15 +160,21 @@ export function loadWorkUpdates(): WorkUpdate[] {
   const raw = localStorage.getItem("portfolio_work_updates");
   const parsed = safeJsonParse<WorkUpdate[]>(raw, DEFAULT_WORK_UPDATES);
   if (!Array.isArray(parsed)) {
-    localStorage.setItem("portfolio_work_updates", JSON.stringify(DEFAULT_WORK_UPDATES));
+    localStorage.setItem(
+      "portfolio_work_updates",
+      JSON.stringify(DEFAULT_WORK_UPDATES),
+    );
     return DEFAULT_WORK_UPDATES;
   }
   // Reset if stored data still has the old Virallens entry
   if (parsed.length > 0 && parsed[0].company === "Virallens") {
-    localStorage.setItem("portfolio_work_updates", JSON.stringify(DEFAULT_WORK_UPDATES));
+    localStorage.setItem(
+      "portfolio_work_updates",
+      JSON.stringify(DEFAULT_WORK_UPDATES),
+    );
     return DEFAULT_WORK_UPDATES;
   }
-  return parsed.map(w => ({
+  return parsed.map((w) => ({
     ...w,
     role: sanitizeText(w.role),
     company: sanitizeText(w.company),
@@ -219,7 +248,7 @@ export function trackActivity(type: ActivityLog["type"], details: string) {
     id: Math.random().toString(36).substring(2, 11),
     timestamp: new Date().toISOString(),
     type,
-    details: safeDetails
+    details: safeDetails,
   };
   const logs = loadActivityLogs();
   logs.unshift(log);

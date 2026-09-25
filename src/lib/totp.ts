@@ -80,3 +80,12 @@ export function isTOTPSetup(): boolean {
 export function markTOTPSetupComplete(): void {
   localStorage.setItem("admin_totp_setup", "true");
 }
+
+export function is2FAEnabled(): boolean {
+  const val = localStorage.getItem("admin_totp_enabled");
+  return val === null ? true : val === "true"; // default true
+}
+
+export function set2FAEnabled(enabled: boolean): void {
+  localStorage.setItem("admin_totp_enabled", enabled ? "true" : "false");
+}

@@ -77,35 +77,35 @@ export const RECOMMENDED_SONGS: Song[] = [
     title: "Rare",
     artist: "Selena Gomez",
     coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80&auto=format&fit=crop",
-    spotifyUrl: "https://open.spotify.com/album/4m6bZskbIWhNWeM42XzY3T"
+    youtubeUrl: "https://www.youtube.com/watch?v=IAEA5mqKmzo"
   },
   {
     id: "2",
     title: "Call Out My Name",
     artist: "The Weeknd",
     coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80&auto=format&fit=crop",
-    spotifyUrl: "https://open.spotify.com/track/09mEdoA6grmY80v0Z6of6Z"
+    youtubeUrl: "https://www.youtube.com/watch?v=M4ZoCHID9GI"
   },
   {
     id: "3",
     title: "HUMBLE.",
     artist: "Kendrick Lamar",
     coverUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&q=80&auto=format&fit=crop",
-    spotifyUrl: "https://open.spotify.com/track/7KXgZ6u76Cc9vS569m9Oca"
+    youtubeUrl: "https://www.youtube.com/watch?v=tvTRZJ-4EyI"
   },
   {
     id: "4",
     title: "STAY",
     artist: "The Kid LAROI & Justin Bieber",
     coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80&auto=format&fit=crop",
-    spotifyUrl: "https://open.spotify.com/track/50nZ31v2vSTg687uI69gS7"
+    youtubeUrl: "https://www.youtube.com/watch?v=kTJczUoc26U"
   },
   {
     id: "5",
     title: "Ruin",
     artist: "Shawn Mendes",
     coverUrl: "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=400&q=80&auto=format&fit=crop",
-    spotifyUrl: "https://open.spotify.com/track/303UjH6vV0nK8FqR4Wf08E"
+    youtubeUrl: "https://www.youtube.com/watch?v=u3OEKz4YvI4"
   }
 ];
 

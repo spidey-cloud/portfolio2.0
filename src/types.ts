@@ -3,6 +3,7 @@ export interface Project {
   title: string;
   description: string;
   image: string;
+  videoUrl?: string; // optional demo video (data URL or hosted URL)
   techStack: string[];
   githubUrl: string;
   liveUrl: string;
@@ -20,7 +21,7 @@ export interface Song {
   title: string;
   artist: string;
   coverUrl: string;
-  spotifyUrl: string;
+  youtubeUrl: string;
 }
 
 export interface ToolCategory {

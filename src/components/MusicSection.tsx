@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { Music, Play } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Music, Play, X } from "lucide-react";
 import { loadSongs, trackActivity } from "../lib/storage";
 import { Song } from "../types";
 
+const getYoutubeId = (url: string) => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
 export default function MusicSection() {
   const [songsList, setSongsList] = useState<Song[]>([]);
+  const [activeSong, setActiveSong] = useState<Song | null>(null);
 
   const fetchSongs = () => {
     setSongsList(loadSongs());
@@ -25,7 +32,8 @@ export default function MusicSection() {
   }, []);
 
   const handleTrackSongPlay = (song: Song) => {
-    trackActivity("live_click", `Spotify recommendation tune play: ${song.title} by ${song.artist}`);
+    trackActivity("live_click", `YouTube recommendation tune play: ${song.title} by ${song.artist}`);
+    setActiveSong(song);
   };
 
   return (
@@ -39,17 +47,14 @@ export default function MusicSection() {
         <div className="w-full overflow-x-auto pb-8 scrollbar-hide flex gap-6 snap-x snap-mandatory">
           <div className="flex gap-6 mx-auto">
             {songsList.map((song, index) => (
-              <motion.a
+              <motion.button
                 key={song.id}
-                href={song.spotifyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
                 onClick={() => handleTrackSongPlay(song)}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="snap-center shrink-0 w-[240px] md:w-[280px] group cursor-pointer block"
+                className="snap-center shrink-0 w-[240px] md:w-[280px] group cursor-pointer block text-left"
               >
                 {/* Image Container */}
                 <div className="relative w-full aspect-square rounded-[20px] overflow-hidden shadow-lg border border-white/5 bg-[#171721] transition-transform duration-500 group-hover:scale-[1.03]">
@@ -83,7 +88,7 @@ export default function MusicSection() {
                   </div>
                   <Music className="w-4 h-4 text-purple-400 shrink-0 ml-2" />
                 </div>
-              </motion.a>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -100,8 +105,60 @@ export default function MusicSection() {
             A FEW SONGS I CAN RECOMMEND IF YOU'RE LOOKING FOR SOME FRESH TUNES :)
           </p>
         </motion.div>
-
       </div>
+
+      {/* YouTube Modal Overlay */}
+      <AnimatePresence>
+        {activeSong && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-sm"
+            onClick={() => setActiveSong(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-4xl bg-[#121214] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#16161c]">
+                <div className="flex items-center gap-3">
+                  <img src={activeSong.coverUrl} alt="cover" className="w-10 h-10 rounded-md object-cover" />
+                  <div>
+                    <h3 className="text-white font-bold text-sm tracking-wide">{activeSong.title}</h3>
+                    <p className="text-white/60 text-xs">{activeSong.artist}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveSong(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="relative w-full aspect-video bg-black">
+                {getYoutubeId(activeSong.youtubeUrl) ? (
+                  <iframe
+                    className="w-full h-full absolute inset-0"
+                    src={`https://www.youtube.com/embed/${getYoutubeId(activeSong.youtubeUrl)}?autoplay=1`}
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white/50 text-sm">
+                    Invalid YouTube URL
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

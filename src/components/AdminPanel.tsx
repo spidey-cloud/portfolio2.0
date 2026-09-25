@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import { useState, useEffect, useRef, KeyboardEvent, ClipboardEvent, ChangeEvent, FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Lock,
@@ -43,6 +43,8 @@ import {
   generateQRCodeDataURL,
   isTOTPSetup,
   markTOTPSetupComplete,
+  is2FAEnabled,
+  set2FAEnabled,
 } from "../lib/totp";
 import {
   validateShortText,
@@ -82,7 +84,10 @@ export default function AdminPanel({
   const [authStep, setAuthStep] = useState<"idle" | "otp" | "authenticated">(
     "idle",
   );
-  const [otpCode, setOtpCode] = useState<string>("");
+  // 6-digit OTP stored as array of single chars
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(""));
+  const otpCode = otpDigits.join("");
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   // Brute-force protection
@@ -112,6 +117,7 @@ export default function AdminPanel({
     title: "",
     description: "",
     image: "",
+    videoUrl: "",
     techStack: [],
     githubUrl: "",
     liveUrl: "",
@@ -129,7 +135,7 @@ export default function AdminPanel({
     title: "",
     artist: "",
     coverUrl: "",
-    spotifyUrl: "",
+    youtubeUrl: "",
   });
 
   // Work update state
@@ -171,14 +177,20 @@ export default function AdminPanel({
 
     if (password === ADMIN_PASSWORD) {
       setAuthError("");
-      setAuthStep("otp");
-      // If TOTP hasn't been setup before, generate a QR to show
-      if (!isTOTPSetup()) {
-        try {
-          const qr = await generateQRCodeDataURL();
-          setQrDataUrl(qr);
-        } catch (err) {
-          // ignore QR generation failure
+      
+      if (!is2FAEnabled()) {
+        setIsAuthenticated(true);
+        setAuthStep("authenticated");
+      } else {
+        setAuthStep("otp");
+        // If TOTP hasn't been setup before, generate a QR to show
+        if (!isTOTPSetup()) {
+          try {
+            const qr = await generateQRCodeDataURL();
+            setQrDataUrl(qr);
+          } catch (err) {
+            // ignore QR generation failure
+          }
         }
       }
     } else {
@@ -227,7 +239,32 @@ export default function AdminPanel({
     setIsAuthenticated(false);
     setPassword("");
     setAuthStep("idle");
-    setOtpCode("");
+    setOtpDigits(Array(6).fill(""));
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const next = [...otpDigits];
+    next[index] = digit;
+    setOtpDigits(next);
+    if (digit && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const next = Array(6).fill("");
+    pasted.split("").forEach((c, i) => { next[i] = c; });
+    setOtpDigits(next);
+    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
   };
 
   // 1. PROJECT HANDLERS
@@ -282,6 +319,7 @@ export default function AdminPanel({
         image:
           newProject.image ||
           "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&q=80",
+        videoUrl: newProject.videoUrl || "",
         techStack: newProject.techStack || [],
         githubUrl: newProject.githubUrl || "https://github.com",
         liveUrl: newProject.liveUrl || "https://vercel.app",
@@ -291,6 +329,7 @@ export default function AdminPanel({
         title: "",
         description: "",
         image: "",
+        videoUrl: "",
         techStack: [],
         githubUrl: "",
         liveUrl: "",
@@ -343,7 +382,7 @@ export default function AdminPanel({
   // Convert File uploads to base64 strings to simulate local photos upload
   const handlePhotoUpload = (
     e: ChangeEvent<HTMLInputElement>,
-    target: "project" | "avatar" | "song" | "resume",
+    target: "project" | "project-video" | "avatar" | "song" | "resume",
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -376,6 +415,13 @@ export default function AdminPanel({
           setNewProject({ ...newProject, image: base64String });
         }
         setUploadStatus("Project cover image uploaded successfully!");
+      } else if (target === "project-video") {
+        if (editingProject) {
+          setEditingProject({ ...editingProject, videoUrl: base64String });
+        } else {
+          setNewProject({ ...newProject, videoUrl: base64String });
+        }
+        setUploadStatus("Project demo video uploaded successfully!");
       } else if (target === "avatar") {
         const updatedAvatar = { ...avatar, url: base64String };
         setAvatar(updatedAvatar);
@@ -516,10 +562,10 @@ export default function AdminPanel({
         coverUrl:
           newSong.coverUrl ||
           "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400",
-        spotifyUrl: newSong.spotifyUrl || "https://spotify.com",
+        youtubeUrl: newSong.youtubeUrl || "https://youtube.com",
       };
       updatedSongs.push(added);
-      setNewSong({ title: "", artist: "", coverUrl: "", spotifyUrl: "" });
+      setNewSong({ title: "", artist: "", coverUrl: "", youtubeUrl: "" });
     }
 
     setSongs(updatedSongs);
@@ -563,86 +609,74 @@ export default function AdminPanel({
 
   if (!isOpen) return null;
 
-  const Outer = ({ children }: { children: React.ReactNode }) => {
-    if (isPage) {
-      return (
-        <div
-          className="min-h-screen flex flex-col"
-          style={{ background: "var(--bg)" }}
-        >
-          {children}
-        </div>
-      );
-    }
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md overflow-y-auto p-4 select-none">
-        {children}
-      </div>
-    );
-  };
+  const outerClass = isPage
+    ? "fixed inset-0 flex flex-col overflow-hidden"
+    : "fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md overflow-y-auto p-4 select-none";
 
   return (
-    <Outer>
+    <div className={outerClass} style={isPage ? { background: "var(--page-bg)", backgroundSize: "cover" } : {}}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className={isPage
+          ? "relative w-full h-full flex flex-col overflow-hidden"
+          : "relative w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border"}
         style={{
           background: "var(--card-bg)",
-          borderColor: "rgba(255,255,255,0.06)",
+          borderColor: isPage ? "transparent" : "var(--border-color)",
         }}
       >
         {/* Header Bar */}
         <div
-          className="flex items-center justify-between px-6 py-4 border-b"
+          className="flex items-center justify-between px-8 py-5 border-b shrink-0"
           style={{
             background: "var(--card-bg-2)",
-            borderColor: "rgba(255,255,255,0.06)",
+            borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-purple-400" />
-            <h2 className="font-bold text-sm tracking-wider uppercase">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-6 h-6 text-purple-400" />
+            <h2 className="font-bold text-base tracking-wider uppercase" style={{ color: "var(--text-primary)" }}>
               Rohon's Admin Panel
             </h2>
             {isAuthenticated && (
-              <span className="text-[10px] bg-purple-500/10 text-purple-400 font-semibold px-2 py-0.5 rounded-full border border-purple-500/20 uppercase tracking-widest">
+              <span className="text-xs bg-purple-500/10 text-purple-400 font-semibold px-3 py-1 rounded-full border border-purple-500/20 uppercase tracking-widest">
                 Authenticated
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center border hover:border-white/20 cursor-pointer transition-colors"
+            className="w-9 h-9 rounded-full flex items-center justify-center border cursor-pointer transition-colors hover:opacity-70"
             style={{
-              borderColor: "rgba(255,255,255,0.05)",
+              borderColor: "var(--border-color)",
               color: "var(--text-secondary)",
             }}
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {authStep !== "authenticated" ? (
           authStep === "idle" ? (
             /* Password Form */
-            <div className="flex-1 p-12 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 p-8">
               <div
-                className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"
-                style={{ color: "var(--text-primary)" }}
+                className="w-24 h-24 rounded-full flex items-center justify-center"
+                style={{ background: "var(--card-bg-2)", border: "2px solid var(--border-color-strong)", color: "var(--text-primary)" }}
               >
-                <Lock className="w-8 h-8" />
+                <Lock className="w-12 h-12" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3 max-w-lg">
                 <h3
-                  className="text-xl font-bold uppercase tracking-wide"
+                  className="text-3xl font-bold uppercase tracking-wide"
                   style={{ color: "var(--text-primary)" }}
                 >
                   Enter Administrator Password
                 </h3>
                 <p
-                  className="text-xs leading-relaxed"
+                  className="text-base leading-relaxed"
                   style={{ color: "var(--text-muted)" }}
                 >
                   Unlock the gateway to dynamic uploads, updating skills,
@@ -651,96 +685,110 @@ export default function AdminPanel({
               </div>
               <form
                 onSubmit={handlePasswordSubmit}
-                className="w-full space-y-4"
+                className="w-full max-w-sm space-y-4"
               >
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <input
                     type="password"
                     placeholder="Enter Password (default: admin)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border rounded-xl px-4 py-3 text-sm outline-none text-center transition-all"
+                    className="w-full rounded-2xl px-6 py-4 text-base outline-none text-center transition-all"
                     style={{
                       background: "var(--card-bg-2)",
                       color: "var(--text-primary)",
-                      borderColor: "rgba(255,255,255,0.06)",
+                      border: "1px solid var(--border-color-strong)",
                     }}
                     autoFocus
                   />
                   {authError && (
-                    <p className="text-rose-400 text-[11px] font-medium pt-1">
+                    <p className="text-rose-400 text-sm font-medium pt-1">
                       {authError}
                     </p>
                   )}
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl font-bold text-xs tracking-wider uppercase hover:opacity-95 transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider uppercase hover:opacity-90 transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2"
                   style={{
-                    background: "var(--text-primary)",
-                    color: "var(--bg)",
+                    background: "var(--btn-bg)",
+                    color: "var(--btn-text)",
                   }}
                 >
-                  Unlock Panel <ArrowRight className="w-3.5 h-3.5" />
+                  Unlock Panel <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
             </div>
           ) : (
-            /* OTP Form */
-            <div className="flex-1 p-8 flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
+            /* OTP Form — 6 individual boxes */
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 p-8">
               <div
-                className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"
-                style={{ color: "var(--text-primary)" }}
+                className="w-24 h-24 rounded-full flex items-center justify-center"
+                style={{ background: "var(--card-bg-2)", border: "2px solid var(--border-color-strong)", color: "var(--text-primary)" }}
               >
-                <ShieldCheck className="w-8 h-8" />
+                <ShieldCheck className="w-12 h-12" />
               </div>
-              <div>
+              <div className="space-y-2">
                 <h3
-                  className="text-lg font-bold uppercase tracking-wide"
+                  className="text-3xl font-bold uppercase tracking-wide"
                   style={{ color: "var(--text-primary)" }}
                 >
                   Two-Factor Authentication
                 </h3>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                <p className="text-base" style={{ color: "var(--text-muted)" }}>
                   Enter the 6-digit code from your authenticator app.
                 </p>
               </div>
               {qrDataUrl && (
-                <div className="p-3 bg-white/5 rounded-xl">
-                  <img src={qrDataUrl} alt="TOTP QR" />
+                <div className="p-4 rounded-2xl" style={{ background: "var(--card-bg-2)", border: "1px solid var(--border-color)" }}>
+                  <img src={qrDataUrl} alt="TOTP QR" className="rounded-xl" />
                   <p
-                    className="text-[10px] mt-2"
+                    className="text-sm mt-3"
                     style={{ color: "var(--text-muted)" }}
                   >
                     Scan this in Google Authenticator (first-time setup)
                   </p>
                 </div>
               )}
-              <form onSubmit={handleVerifyOtp} className="w-full space-y-4">
-                <input
-                  type="text"
-                  placeholder="123456"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  className="w-full border rounded-xl px-4 py-3 text-sm text-center outline-none"
-                  style={{
-                    background: "var(--card-bg-2)",
-                    color: "var(--text-primary)",
-                    borderColor: "rgba(255,255,255,0.06)",
-                  }}
-                />
+              <form onSubmit={handleVerifyOtp} className="w-full max-w-sm space-y-6">
+                {/* 6-box OTP inputs */}
+                <div className="flex gap-4 justify-center">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpRefs.current[idx] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={otpDigits[idx]}
+                      onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      onPaste={idx === 0 ? handleOtpPaste : undefined}
+                      className="w-14 h-16 rounded-2xl text-center text-2xl font-bold outline-none transition-all"
+                      style={{
+                        background: "var(--card-bg-2)",
+                        color: "var(--text-primary)",
+                        border: otpDigits[idx]
+                          ? "2px solid #a855f7"
+                          : "1px solid var(--border-color-strong)",
+                        boxShadow: otpDigits[idx] ? "0 0 0 4px rgba(168,85,247,0.15)" : "none",
+                      }}
+                      autoFocus={idx === 0}
+                    />
+                  ))}
+                </div>
                 {authError && (
-                  <p className="text-rose-400 text-[11px] font-medium pt-1">
+                  <p className="text-rose-400 text-sm font-medium">
                     {authError}
                   </p>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <button
                     type="submit"
-                    className="flex-1 py-3 rounded-xl font-bold text-xs uppercase"
+                    className="flex-1 py-4 rounded-2xl font-bold text-sm uppercase cursor-pointer hover:opacity-90 transition-all"
                     style={{
-                      background: "var(--text-primary)",
-                      color: "var(--bg)",
+                      background: "var(--btn-bg)",
+                      color: "var(--btn-text)",
                     }}
                   >
                     Verify
@@ -751,9 +799,10 @@ export default function AdminPanel({
                       setAuthStep("idle");
                       setPassword("");
                       setQrDataUrl("");
+                      setOtpDigits(Array(6).fill(""));
                     }}
-                    className="py-3 px-3 rounded-xl text-xs border"
-                    style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                    className="py-4 px-6 rounded-2xl text-sm cursor-pointer hover:opacity-80 transition-all"
+                    style={{ border: "1px solid var(--border-color-strong)", color: "var(--text-secondary)" }}
                   >
                     Back
                   </button>
@@ -766,82 +815,87 @@ export default function AdminPanel({
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
             {/* Sidebar Navigation */}
             <div
-              className="w-full lg:w-[220px] border-r p-4 flex flex-col justify-between"
+              className="w-full lg:w-[280px] shrink-0 border-r p-6 flex flex-col justify-between"
               style={{
                 background: "var(--card-bg-2)",
-                borderColor: "rgba(255,255,255,0.05)",
+                borderColor: "var(--border-color)",
               }}
             >
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <button
                   onClick={() => setActiveTab("analytics")}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                     activeTab === "analytics"
                       ? "bg-white/5 border border-white/10"
-                      : "hover:bg-white/[0.02]"
+                      : "hover:bg-white/[0.03]"
                   }`}
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  <Activity className="w-4 h-4 text-purple-400" />
+                  <Activity className="w-5 h-5 text-purple-400" />
                   Activity Logs
                 </button>
                 <button
                   onClick={() => setActiveTab("projects")}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                     activeTab === "projects"
                       ? "bg-white/5 border border-white/10"
-                      : "hover:bg-white/[0.02]"
+                      : "hover:bg-white/[0.03]"
                   }`}
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  <FolderKanban className="w-4 h-4 text-purple-400" />
+                  <FolderKanban className="w-5 h-5 text-purple-400" />
                   Projects
                 </button>
                 <button
                   onClick={() => setActiveTab("skills")}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                     activeTab === "skills"
                       ? "bg-white/5 border border-white/10"
-                      : "hover:bg-white/[0.02]"
+                      : "hover:bg-white/[0.03]"
                   }`}
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  <Award className="w-4 h-4 text-purple-400" />
+                  <Award className="w-5 h-5 text-purple-400" />
                   Skills List
                 </button>
                 <button
                   onClick={() => setActiveTab("work")}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                     activeTab === "work"
                       ? "bg-white/5 border border-white/10"
-                      : "hover:bg-white/[0.02]"
+                      : "hover:bg-white/[0.03]"
                   }`}
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  <FileText className="w-4 h-4 text-purple-400" />
+                  <FileText className="w-5 h-5 text-purple-400" />
                   Work & Resume
                 </button>
                 <button
                   onClick={() => setActiveTab("photos")}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                     activeTab === "photos"
                       ? "bg-white/5 border border-white/10"
-                      : "hover:bg-white/[0.02]"
+                      : "hover:bg-white/[0.03]"
                   }`}
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  <Image className="w-4 h-4 text-purple-400" />
-                  Avatar & Songs
+                  <Image className="w-5 h-5 text-purple-400" />
+                  Security, Avatar & Songs
                 </button>
               </div>
 
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-3 mt-6 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 transition-all cursor-pointer border border-transparent hover:border-rose-500/10"
+                className="w-full flex items-center gap-3 px-5 py-4 mt-6 rounded-xl text-sm text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 transition-all cursor-pointer border border-transparent hover:border-rose-500/10"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-5 h-5" />
                 Sign Out Panel
               </button>
             </div>
 
             {/* Core Working Area */}
-            <div className="flex-1 p-6 overflow-y-auto max-h-[65vh] lg:max-h-[unset] space-y-6">
+            <div className="flex-1 p-8 overflow-y-auto space-y-6">
               {/* STATUS LOG MESSAGE */}
               {uploadStatus && (
                 <div className="flex items-center justify-between p-3.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-xl text-xs font-medium tracking-wide">
@@ -1105,8 +1159,8 @@ export default function AdminPanel({
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
-                          Cover Image URL
+                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider flex items-center gap-1.5">
+                          Cover Image
                         </label>
                         <div className="flex gap-2">
                           <input
@@ -1128,10 +1182,10 @@ export default function AdminPanel({
                                   })
                             }
                             className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
-                            placeholder="Preset image or paste Unsplash link"
+                            placeholder="Paste image URL or upload"
                           />
-                          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-xs px-3.5 py-2.5 border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide">
-                            Upload File
+                          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-xs px-3.5 py-2.5 border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
+                            Upload
                             <input
                               type="file"
                               accept="image/*"
@@ -1140,7 +1194,68 @@ export default function AdminPanel({
                             />
                           </label>
                         </div>
+                        {(editingProject ? editingProject.image : newProject.image) && (
+                          <div className="relative w-full h-28 rounded-xl overflow-hidden border border-white/5 mt-1">
+                            <img
+                              src={editingProject ? editingProject.image : newProject.image}
+                              alt="preview"
+                              className="w-full h-full object-cover"
+                            />
+                            <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-widest bg-black/60 text-white px-2 py-0.5 rounded-full">Image</span>
+                          </div>
+                        )}
                       </div>
+                    </div>
+
+                    {/* Video row */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider flex items-center gap-1.5">
+                        Demo Video <span className="text-white/20 normal-case font-normal tracking-normal">(optional)</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={
+                            editingProject
+                              ? editingProject.videoUrl || ""
+                              : newProject.videoUrl || ""
+                          }
+                          onChange={(e) =>
+                            editingProject
+                              ? setEditingProject({
+                                  ...editingProject,
+                                  videoUrl: e.target.value,
+                                })
+                              : setNewProject({
+                                  ...newProject,
+                                  videoUrl: e.target.value,
+                                })
+                          }
+                          className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
+                          placeholder="Paste hosted mp4/webm URL or upload file"
+                        />
+                        <label className="cursor-pointer bg-purple-500/10 hover:bg-purple-500/20 text-xs px-3.5 py-2.5 border border-purple-500/20 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide whitespace-nowrap text-purple-400">
+                          Upload
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={(e) => handlePhotoUpload(e, "project-video")}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      {(editingProject ? editingProject.videoUrl : newProject.videoUrl) && (
+                        <div className="relative w-full rounded-xl overflow-hidden border border-purple-500/20 mt-1 bg-black">
+                          <video
+                            src={editingProject ? editingProject.videoUrl : newProject.videoUrl}
+                            className="w-full max-h-40 object-cover"
+                            muted
+                            playsInline
+                            controls
+                          />
+                          <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-widest bg-purple-600/80 text-white px-2 py-0.5 rounded-full">Video ✓</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -1678,6 +1793,39 @@ export default function AdminPanel({
                     </p>
                   </div>
 
+                  {/* Security Settings (2FA) */}
+                  <div className="bg-[#1e1e24]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8] flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" /> Security Settings
+                    </h4>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="text-sm font-semibold text-[#F4EEE8]">Two-Factor Authentication (TOTP)</h5>
+                        <p className="text-[11px] text-[#A3A3AA] mt-1 max-w-sm leading-relaxed">
+                          Require Google Authenticator / Authy app verification when logging into the Admin Panel.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newStatus = !is2FAEnabled();
+                          set2FAEnabled(newStatus);
+                          setUploadStatus(`2FA requirement has been ${newStatus ? 'enabled' : 'disabled'}.`);
+                          // Force a re-render by doing a shallow data change
+                          onDataChange(); 
+                        }}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 cursor-pointer ${
+                          is2FAEnabled() ? "bg-emerald-500" : "bg-white/10"
+                        }`}
+                      >
+                        <div
+                          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 ${
+                            is2FAEnabled() ? "left-7" : "left-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Profile Avatar update */}
                   <form
                     onSubmit={handleUpdateAvatarDetails}
@@ -1827,28 +1975,28 @@ export default function AdminPanel({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
-                            Song Spotify URL
+                            Song YouTube URL
                           </label>
                           <input
                             type="url"
                             value={
                               editingSong
-                                ? editingSong.spotifyUrl
-                                : newSong.spotifyUrl || ""
+                                ? editingSong.youtubeUrl
+                                : newSong.youtubeUrl || ""
                             }
                             onChange={(e) =>
                               editingSong
                                 ? setEditingSong({
                                     ...editingSong,
-                                    spotifyUrl: e.target.value,
+                                    youtubeUrl: e.target.value,
                                   })
                                 : setNewSong({
                                     ...newSong,
-                                    spotifyUrl: e.target.value,
+                                    youtubeUrl: e.target.value,
                                   })
                             }
                             className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
-                            placeholder="https://open.spotify.com/..."
+                            placeholder="https://youtube.com/..."
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -1950,6 +2098,6 @@ export default function AdminPanel({
           </div>
         )}
       </motion.div>
-    </Outer>
+    </div>
   );
 }

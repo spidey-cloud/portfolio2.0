@@ -15,7 +15,7 @@ const MAX_URL_LENGTH = 512;
 const MAX_FILE_SIZE  = 2 * 1024 * 1024; // 2 MB
 
 // Allowed URL schemes — explicitly blocks javascript:, data:, vbscript:
-const SAFE_URL_SCHEMES = /^https?:\/\//i;
+const SAFE_URL_SCHEMES = /^(https?:\/\/|\/|data:image\/)/i;
 const SAFE_MAILTO      = /^mailto:/i;
 
 // ---------------------------------------------------------------------------
@@ -70,12 +70,13 @@ export function validateUrl(value: unknown, required = false): { ok: boolean; va
     return { ok: false, value: "", error: "URL is too long." };
   }
   if (!SAFE_URL_SCHEMES.test(s)) {
-    return { ok: false, value: "", error: "URL must start with https:// or http://" };
+    return { ok: false, value: "", error: "URL must start with https://, http://, or /" };
   }
   try {
-    new URL(s); // structural validity check
-  } catch {
-    return { ok: false, value: "", error: "Invalid URL format." };
+    // Provide a dummy base URL so relative paths (e.g. /assets) pass structural validation
+    new URL(s, "http://localhost"); 
+  } catch (e) {
+    return { ok: false, value: "", error: "Invalid URL structure." };
   }
   return { ok: true, value: s, error: "" };
 }

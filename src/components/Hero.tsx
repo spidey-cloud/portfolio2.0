@@ -5,7 +5,7 @@ import { loadAvatar, trackActivity } from "../lib/storage";
 export default function Hero() {
   const [isHovered, setIsHovered] = useState(false);
   const [avatarData, setAvatarData] = useState({
-    url: "/src/assets/images/profile_avatar_1784406141109.jpg",
+    url: "/static/images/profile_avatar_1784406141109.jpg",
     statusText: "I'm Open to work",
   });
   const heroRef = useRef<HTMLElement | null>(null);

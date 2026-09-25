@@ -58,7 +58,7 @@ const DEFAULT_WORK_UPDATES: WorkUpdate[] = [
 ];
 
 const DEFAULT_RESUME = {
-  url: "https://drive.google.com/file/d/1cUzR0BLUjVMcTU5-B24ATuPsCsG0YtCl/preview",
+  url: "https://drive.google.com/file/d/1lc6oe-EnCmaa7TMeUTiXQsXq1eJUIVvS/view?usp=sharing",
   fileName: "Rohon-Kumar-Dutta-Resume.pdf",
   updatedAt: "2026-07-19",
 };

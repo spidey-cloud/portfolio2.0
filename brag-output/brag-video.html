@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Brag Video - 2016 Series A</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap');
+
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      background: #f7f9fc;
+      color: #2d3748;
+      font-family: 'Montserrat', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scene {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      opacity: 0;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 4rem;
+      font-weight: 300;
+      margin: 0;
+      color: #2b6cb0;
+      line-height: 1.2;
+      max-width: 80%;
+    }
+
+    h2 {
+      font-size: 2rem;
+      font-weight: 400;
+      color: #4a5568;
+      margin-top: 1.5rem;
+      max-width: 70%;
+      line-height: 1.4;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #a0aec0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+
+    /* Earnest, slow fades */
+    @keyframes earnestFade {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      15% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      85% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .playing .scene-1 {
+      animation: earnestFade 4.5s 0s forwards;
+    }
+
+    .playing .scene-2 {
+      animation: earnestFade 4.5s 4.5s forwards;
+    }
+
+    .playing .scene-3 {
+      animation: earnestFade 4.5s 9s forwards;
+    }
+
+    .playing .scene-4 {
+      animation: earnestFade 4.5s 13.5s forwards;
+    }
+
+    .playing .scene-5 {
+      animation: earnestFade 4.5s 18s forwards;
+    }
+
+    #start-btn {
+      position: absolute;
+      z-index: 1000;
+      padding: 1rem 2.5rem;
+      font-size: 1.2rem;
+      background: #3182ce;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    #start-btn:hover {
+      background: #2b6cb0;
+    }
+  </style>
+</head>
+
+<body>
+  <button id="start-btn">Watch Announcement</button>
+
+  <div class="scene scene-1">
+    <div class="logo">Company Update</div>
+    <h1>We are thrilled to announce</h1>
+    <h2>Portfolio 2.0</h2>
+  </div>
+
+  <div class="scene scene-2">
+    <h1>Fundamentally rethinking</h1>
+    <h2>The personal website paradigm.</h2>
+  </div>
+
+  <div class="scene scene-3">
+    <h1>Enterprise-grade TOTP Admin Panel.</h1>
+    <h2>Because your bio deserves military-grade security.</h2>
+  </div>
+
+  <div class="scene scene-4">
+    <h1>Built on React 19 and Vite.</h1>
+    <h2>Scaling to meet the demands of tomorrow.</h2>
+  </div>
+
+  <div class="scene scene-5">
+    <h1>Join the revolution.</h1>
+    <h2>We're hiring. (github.com/rohonDutta/portfolio2.0)</h2>
+  </div>
+
+  <script>
+    document.getElementById('start-btn').addEventListener('click', () => {
+      document.getElementById('start-btn').style.display = 'none';
+      document.body.classList.add('playing');
+
+      const scenes = [
+        "We are thrilled to announce. Portfolio 2 point 0.",
+        "Fundamentally rethinking the personal website paradigm.",
+        "Enterprise-grade T O T P Admin Panel. Because your bio deserves military-grade security.",
+        "Built on React 19 and Vite. Scaling to meet the demands of tomorrow.",
+        "Join the revolution. We are hiring."
+      ];
+
+      scenes.forEach((text, index) => {
+        setTimeout(() => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.pitch = 1.1; // Earnest, slightly higher corporate voice
+          utterance.rate = 0.95; // Deliberate but natural
+          speechSynthesis.speak(utterance);
+        }, index * 4500);
+      });
+    });
+  </script>
+</body>
+
+</html>

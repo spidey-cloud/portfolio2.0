@@ -95,8 +95,10 @@ export default function AdminPanel({
   const [lockUntil, setLockUntil] = useState<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<
-    "projects" | "skills" | "work" | "photos" | "analytics"
-  >("analytics");
+    "projects" | "skills" | "work" | "photos" | "analytics" | "bookings"
+  >("bookings");
+
+  const [apiBookings, setApiBookings] = useState<any[]>([]);
 
   // Dynamic state
   const [projects, setProjects] = useState<Project[]>([]);
@@ -154,15 +156,38 @@ export default function AdminPanel({
   // Load all initial data
   useEffect(() => {
     if (isOpen) {
-      setProjects(loadProjects());
-      setSkills(loadSkills());
-      setSongs(loadSongs());
-      setWorkUpdates(loadWorkUpdates());
-      setResume(loadResume());
-      setAvatar(loadAvatar());
-      setLogs(loadActivityLogs());
+      loadProjects().then(setProjects);
+      loadSkills().then(setSkills);
+      loadSongs().then(setSongs);
+      loadWorkUpdates().then(setWorkUpdates);
+      loadResume().then(setResume);
+      loadAvatar().then(setAvatar);
+      loadActivityLogs().then(setLogs);
+
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+      fetch(`${API_BASE}/api/bookings`)
+        .then(res => res.json())
+        .then(data => setApiBookings(Array.isArray(data) ? data : []))
+        .catch(() => {});
     }
   }, [isOpen]);
+
+  const handleBookingAction = async (id: string, action: 'accept' | 'cancel') => {
+    setUploadStatus(`Processing ${action}...`);
+    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    try {
+      const res = await fetch(`${API_BASE}/api/bookings/${id}/${action}`, { method: 'POST' });
+      if (res.ok) {
+        setUploadStatus(`Booking ${action}ed successfully.`);
+        const updated = await fetch(`${API_BASE}/api/bookings`).then(r => r.json());
+        setApiBookings(Array.isArray(updated) ? updated : []);
+      } else {
+        setUploadStatus(`Failed to ${action} booking.`);
+      }
+    } catch(e: any) {
+      setUploadStatus(`Error: ${e.message}`);
+    }
+  };
 
   const LOCK_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -883,6 +908,21 @@ export default function AdminPanel({
                   Security, Avatar & Songs
                 </button>
               </div>
+              
+              <div className="mt-2">
+                <button
+                  onClick={() => setActiveTab("bookings")}
+                  className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === "bookings"
+                      ? "bg-white/5 border border-white/10"
+                      : "hover:bg-white/[0.03]"
+                  }`}
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <Check className="w-5 h-5 text-purple-400" />
+                  Meeting Bookings
+                </button>
+              </div>
 
               {/* Logout Button */}
               <button
@@ -1091,6 +1131,71 @@ export default function AdminPanel({
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* BOOKINGS TAB CONTENT */}
+              {activeTab === "bookings" && (
+                <div className="space-y-6">
+                  <div className="border-b border-white/5 pb-4">
+                    <h3 className="text-lg font-bold uppercase tracking-wider text-[#F4EEE8]">
+                      Meeting Bookings
+                    </h3>
+                    <p className="text-xs text-[#A3A3AA]">
+                      Accept or cancel strategy call requests. Notifications are sent automatically.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {apiBookings.length === 0 ? (
+                      <p className="text-xs py-6 text-center border border-dashed rounded-xl" style={{ color: "var(--text-muted)", borderColor: "rgba(255,255,255,0.06)" }}>
+                        No booking requests yet.
+                      </p>
+                    ) : (
+                      apiBookings.map((b: any) => (
+                        <div key={b.id} className="p-5 rounded-2xl border flex flex-col gap-3" style={{ background: "var(--card-bg-2)", borderColor: "rgba(255,255,255,0.05)" }}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-bold text-[#F4EEE8] text-lg">{b.name}</h4>
+                              <a href={`mailto:${b.email}`} className="text-sm text-[#A78BFA] hover:underline">{b.email}</a>
+                              <p className="text-sm mt-2 font-medium" style={{ color: "var(--text-primary)" }}>
+                                {new Date(b.date).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "long" })} @ {b.time}
+                              </p>
+                              {b.notes && (
+                                <div className="mt-3 p-3 bg-white/5 rounded-lg border border-white/5">
+                                  <p className="text-xs text-[#A3A3AA] italic">"{b.notes}"</p>
+                                </div>
+                              )}
+                            </div>
+                            <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                              b.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                              b.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                              'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            }`}>
+                              {b.status}
+                            </div>
+                          </div>
+                          
+                          {b.status === 'pending' && (
+                            <div className="flex gap-3 mt-2 border-t border-white/5 pt-4">
+                              <button
+                                onClick={() => handleBookingAction(b.id, 'accept')}
+                                className="flex-1 py-2.5 bg-[#F4EEE8] hover:bg-white text-[#0B0B12] rounded-xl text-xs font-bold uppercase cursor-pointer transition-all shadow-lg"
+                              >
+                                Accept Request
+                              </button>
+                              <button
+                                onClick={() => handleBookingAction(b.id, 'cancel')}
+                                className="px-6 py-2.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-xl text-xs font-bold uppercase cursor-pointer transition-all"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>

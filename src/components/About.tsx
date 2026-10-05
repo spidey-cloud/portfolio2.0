@@ -19,9 +19,9 @@ export default function About() {
 
   useEffect(() => {
     // Load dynamic contents on component mount
-    setSkills(loadSkills());
-    setWorkUpdates(loadWorkUpdates());
-    setResume(loadResume());
+    loadSkills().then(setSkills);
+    loadWorkUpdates().then(setWorkUpdates);
+    loadResume().then(setResume);
   }, []);
 
   // Handle resume tracking activity

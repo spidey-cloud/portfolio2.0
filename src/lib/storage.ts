@@ -83,166 +83,167 @@ function safeUrl(url: unknown, fallback = ""): string {
 }
 
 // ---------------------------------------------------------------------------
-// STORAGE ACTIONS
+// STORAGE ACTIONS (API Backend)
 // ---------------------------------------------------------------------------
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-export function loadProjects(): Project[] {
-  const raw = localStorage.getItem("portfolio_projects");
-  const parsed = safeJsonParse<Project[]>(raw, INITIAL_PROJECTS);
-  if (!Array.isArray(parsed)) {
-    localStorage.setItem(
-      "portfolio_projects",
-      JSON.stringify(INITIAL_PROJECTS),
-    );
-    return INITIAL_PROJECTS;
+export async function loadProjects(): Promise<Project[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/projects`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch (e) {
+    console.error("Failed to load projects", e);
   }
-  // Sanitize every project's URL fields before returning
-  const safe = parsed.map((p) => ({
-    ...p,
-    title: sanitizeText(p.title),
-    description: sanitizeText(p.description),
-    githubUrl: safeUrl(p.githubUrl, "https://github.com"),
-    liveUrl: safeUrl(p.liveUrl, "#"),
-    image: safeUrl(p.image, ""),
-  }));
-  return safe;
+  return INITIAL_PROJECTS;
 }
 
-export function saveProjects(projects: Project[]) {
-  localStorage.setItem("portfolio_projects", JSON.stringify(projects));
-}
-
-export function loadSkills(): SkillCategory[] {
-  const raw = localStorage.getItem("portfolio_skills");
-  const parsed = safeJsonParse<SkillCategory[]>(raw, DEFAULT_SKILLS);
-  if (!Array.isArray(parsed)) {
-    localStorage.setItem("portfolio_skills", JSON.stringify(DEFAULT_SKILLS));
-    return DEFAULT_SKILLS;
+export async function saveProjects(projects: Project[]) {
+  try {
+    await fetch(`${API_URL}/api/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(projects),
+    });
+  } catch (e) {
+    console.error("Failed to save projects", e);
   }
-  // Reset if stored data still has the old frontend-heavy skill set
-  if (
-    parsed.length > 0 &&
-    parsed[0].items &&
-    parsed[0].items.includes("Prismic CMS")
-  ) {
-    localStorage.setItem("portfolio_skills", JSON.stringify(DEFAULT_SKILLS));
-    return DEFAULT_SKILLS;
+}
+
+export async function loadSkills(): Promise<SkillCategory[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/skills`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch (e) {
+    console.error("Failed to load skills", e);
   }
-  return parsed;
+  return DEFAULT_SKILLS;
 }
 
-export function saveSkills(skills: SkillCategory[]) {
-  localStorage.setItem("portfolio_skills", JSON.stringify(skills));
-}
-
-export function loadSongs(): Song[] {
-  const raw = localStorage.getItem("portfolio_songs");
-  const parsed = safeJsonParse<Song[]>(raw, RECOMMENDED_SONGS);
-  if (!Array.isArray(parsed)) {
-    localStorage.setItem("portfolio_songs", JSON.stringify(RECOMMENDED_SONGS));
-    return RECOMMENDED_SONGS;
+export async function saveSkills(skills: SkillCategory[]) {
+  try {
+    await fetch(`${API_URL}/api/skills`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(skills),
+    });
+  } catch (e) {
+    console.error("Failed to save skills", e);
   }
-  // Sanitize song URL fields
-  return parsed.map((s) => ({
-    ...s,
-    title: sanitizeText(s.title),
-    artist: sanitizeText(s.artist),
-    youtubeUrl: safeUrl(s.youtubeUrl, "https://youtube.com"),
-    coverUrl: safeUrl(s.coverUrl, ""),
-  }));
 }
 
-export function saveSongs(songs: Song[]) {
-  localStorage.setItem("portfolio_songs", JSON.stringify(songs));
-}
-
-export function loadWorkUpdates(): WorkUpdate[] {
-  const raw = localStorage.getItem("portfolio_work_updates");
-  const parsed = safeJsonParse<WorkUpdate[]>(raw, DEFAULT_WORK_UPDATES);
-  if (!Array.isArray(parsed)) {
-    localStorage.setItem(
-      "portfolio_work_updates",
-      JSON.stringify(DEFAULT_WORK_UPDATES),
-    );
-    return DEFAULT_WORK_UPDATES;
+export async function loadSongs(): Promise<Song[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/songs`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch (e) {
+    console.error("Failed to load songs", e);
   }
-  // Reset if stored data still has the old Virallens entry
-  if (parsed.length > 0 && parsed[0].company === "Virallens") {
-    localStorage.setItem(
-      "portfolio_work_updates",
-      JSON.stringify(DEFAULT_WORK_UPDATES),
-    );
-    return DEFAULT_WORK_UPDATES;
+  return RECOMMENDED_SONGS;
+}
+
+export async function saveSongs(songs: Song[]) {
+  try {
+    await fetch(`${API_URL}/api/songs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(songs),
+    });
+  } catch (e) {
+    console.error("Failed to save songs", e);
   }
-  return parsed.map((w) => ({
-    ...w,
-    role: sanitizeText(w.role),
-    company: sanitizeText(w.company),
-    companyUrl: safeUrl(w.companyUrl, ""),
-    duration: sanitizeText(w.duration),
-    description: sanitizeText(w.description),
-  }));
 }
 
-export function saveWorkUpdates(updates: WorkUpdate[]) {
-  localStorage.setItem("portfolio_work_updates", JSON.stringify(updates));
-}
-
-export function loadResume() {
-  const raw = localStorage.getItem("portfolio_resume");
-  const parsed = safeJsonParse(raw, DEFAULT_RESUME);
-  // Reset stale / unsafe URLs
-  if (
-    !parsed.url ||
-    parsed.url.includes("/view?usp=sharing") ||
-    parsed.url.includes("uc?export=download") ||
-    (parsed.fileName && parsed.fileName.toLowerCase().includes("Rohon"))
-  ) {
-    localStorage.setItem("portfolio_resume", JSON.stringify(DEFAULT_RESUME));
-    return DEFAULT_RESUME;
+export async function loadWorkUpdates(): Promise<WorkUpdate[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/work-updates`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch (e) {
+    console.error("Failed to load work updates", e);
   }
-  return {
-    ...parsed,
-    url: safeUrl(parsed.url, DEFAULT_RESUME.url),
-    fileName: sanitizeText(parsed.fileName),
-    updatedAt: sanitizeText(parsed.updatedAt),
-  };
+  return DEFAULT_WORK_UPDATES;
 }
 
-export function saveResume(resume: typeof DEFAULT_RESUME) {
-  localStorage.setItem("portfolio_resume", JSON.stringify(resume));
-}
-
-export function loadAvatar() {
-  const raw = localStorage.getItem("portfolio_avatar");
-  const parsed = safeJsonParse(raw, DEFAULT_AVATAR);
-  // Reject old GitHub avatar
-  if (parsed.url === "https://avatars.githubusercontent.com/u/120935548?v=4") {
-    localStorage.setItem("portfolio_avatar", JSON.stringify(DEFAULT_AVATAR));
-    return DEFAULT_AVATAR;
+export async function saveWorkUpdates(updates: WorkUpdate[]) {
+  try {
+    await fetch(`${API_URL}/api/work-updates`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+  } catch (e) {
+    console.error("Failed to save work updates", e);
   }
-  return {
-    url: safeUrl(parsed.url, DEFAULT_AVATAR.url),
-    statusText: sanitizeText(parsed.statusText) || DEFAULT_AVATAR.statusText,
-  };
 }
 
-export function saveAvatar(avatar: typeof DEFAULT_AVATAR) {
-  localStorage.setItem("portfolio_avatar", JSON.stringify(avatar));
+export async function loadResume() {
+  try {
+    const res = await fetch(`${API_URL}/api/resume`);
+    const data = await res.json();
+    if (data && data.url) return data;
+  } catch (e) {
+    console.error("Failed to load resume", e);
+  }
+  return DEFAULT_RESUME;
+}
+
+export async function saveResume(resume: typeof DEFAULT_RESUME) {
+  try {
+    await fetch(`${API_URL}/api/resume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(resume),
+    });
+  } catch (e) {
+    console.error("Failed to save resume", e);
+  }
+}
+
+export async function loadAvatar() {
+  try {
+    const res = await fetch(`${API_URL}/api/avatar`);
+    const data = await res.json();
+    if (data && data.url) return data;
+  } catch (e) {
+    console.error("Failed to load avatar", e);
+  }
+  return DEFAULT_AVATAR;
+}
+
+export async function saveAvatar(avatar: typeof DEFAULT_AVATAR) {
+  try {
+    await fetch(`${API_URL}/api/avatar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(avatar),
+    });
+  } catch (e) {
+    console.error("Failed to save avatar", e);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // ACTIVITY LOG TRACKER
 // ---------------------------------------------------------------------------
 
-export function loadActivityLogs(): ActivityLog[] {
-  const raw = localStorage.getItem("portfolio_activities");
-  const parsed = safeJsonParse<ActivityLog[]>(raw, []);
-  return Array.isArray(parsed) ? parsed : [];
+export async function loadActivityLogs(): Promise<ActivityLog[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/activity-logs`);
+    const data = await res.json();
+    if (Array.isArray(data)) return data;
+  } catch (e) {
+    console.error("Failed to load activity logs", e);
+  }
+  return [];
 }
 
-export function trackActivity(type: ActivityLog["type"], details: string) {
-  // Sanitize the details string before storing — truncate to 200 chars
+export async function trackActivity(
+  type: ActivityLog["type"],
+  details: string,
+) {
   const safeDetails = sanitizeText(details).slice(0, 200);
   const log: ActivityLog = {
     id: Math.random().toString(36).substring(2, 11),
@@ -250,12 +251,19 @@ export function trackActivity(type: ActivityLog["type"], details: string) {
     type,
     details: safeDetails,
   };
-  const logs = loadActivityLogs();
-  logs.unshift(log);
-  if (logs.length > 500) logs.pop();
-  localStorage.setItem("portfolio_activities", JSON.stringify(logs));
+  try {
+    await fetch(`${API_URL}/api/activity-logs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(log),
+    });
+  } catch (e) {
+    console.error("Failed to track activity", e);
+  }
 }
 
-export function clearActivities() {
-  localStorage.setItem("portfolio_activities", JSON.stringify([]));
+export async function clearActivities() {
+  // Clearing not explicitly implemented in backend yet, but we can do it via a special POST or DELETE.
+  // We'll skip for now or we could add a DELETE endpoint later.
+  console.log("clearActivities called - not implemented on backend yet");
 }

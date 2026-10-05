@@ -231,8 +231,8 @@ export default function Projects() {
   const [projectsList, setProjectsList] = useState<Project[]>([]);
 
   useEffect(() => {
-    setProjectsList(loadProjects());
-    const handleSync = () => setProjectsList(loadProjects());
+    loadProjects().then(setProjectsList);
+    const handleSync = () => loadProjects().then(setProjectsList);
     window.addEventListener("portfolio-data-updated", handleSync);
     return () => window.removeEventListener("portfolio-data-updated", handleSync);
   }, []);

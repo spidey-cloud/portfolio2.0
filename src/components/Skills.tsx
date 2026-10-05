@@ -14,7 +14,7 @@ export default function Skills() {
   const [skillsData, setSkillsData] = useState<any[]>([]);
 
   useEffect(() => {
-    setSkillsData(loadSkills());
+    loadSkills().then(setSkillsData);
   }, []);
 
   // Compile all skills dynamically into an array of objects

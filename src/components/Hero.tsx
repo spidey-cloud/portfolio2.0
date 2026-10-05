@@ -33,11 +33,11 @@ export default function Hero() {
     trackActivity("page_view", "Portfolio Homepage loaded");
 
     // Fetch dynamic avatar
-    setAvatarData(loadAvatar());
+    loadAvatar().then(setAvatarData);
 
     // Listen for real-time updates
     const handleSync = () => {
-      setAvatarData(loadAvatar());
+      loadAvatar().then(setAvatarData);
     };
     window.addEventListener("portfolio-data-updated", handleSync);
 

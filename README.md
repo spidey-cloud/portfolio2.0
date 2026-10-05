@@ -20,10 +20,17 @@ A modern, feature-rich portfolio website built with **React**, **TypeScript**, *
 
 - **TOTP/OTP Authentication** — Two-factor authentication with QR code setup
 - **Content Management** — Edit all portfolio sections in real-time
-- **Brute-force Protection** — Account lockout after failed login attempts
-- **Activity Logging** — Track all administrative changes
-- **Secure Storage** — All changes stored in browser localStorage with validation
+- **Meeting Bookings** — View, Accept, and Decline strategy call requests directly
+- **Activity Logging** — Track all administrative changes in the cloud
 - **Dark-themed UI** — Professional admin interface with smooth animations
+
+### Backend & Database (New!)
+
+- **Express & Node.js** — Secure API for handling emails, bookings, and database operations
+- **Supabase Integration** — Persistent cloud storage for projects, skills, bookings, and activity logs
+- **Automated Email Notifications** — NodeMailer integration sends custom HTML emails on booking request, acceptance, and cancellation
+- **Smart Scheduling** — Booking conflict checker automatically disables time slots that are already accepted
+- **Optimized Performance** — High-density mouse animations migrated to HTML5 Canvas to prevent UI lag
 
 ### Security
 
@@ -46,14 +53,15 @@ A modern, feature-rich portfolio website built with **React**, **TypeScript**, *
 | Category               | Technology                              |
 | ---------------------- | --------------------------------------- |
 | **Frontend Framework** | React 19.0.1                            |
+| **Backend Framework**  | Node.js & Express.js                    |
+| **Database**           | Supabase (PostgreSQL)                   |
+| **Email Service**      | NodeMailer (Gmail SMTP)                 |
 | **Language**           | TypeScript 5.8                          |
 | **Build Tool**         | Vite 6.2.3                              |
 | **Styling**            | Tailwind CSS 4.1.14                     |
-| **Animations**         | Motion 12.23.24                         |
+| **Animations**         | Motion 12.23.24, HTML5 Canvas           |
 | **Icons**              | React Icons 5.7.0, Lucide React 0.546.0 |
 | **Authentication**     | OTPAuth 9.5.1 (TOTP/RFC 6238)           |
-| **QR Codes**           | qrcode 1.5.4                            |
-| **Package Manager**    | Node.js & npm                           |
 
 ## 🛠️ Prerequisites
 
@@ -78,26 +86,41 @@ npm install
 
 ### 3. Configure Environment Variables
 
-Create a `.env.local` file in the root directory:
+Create a `.env` file in the root directory:
 
 ```env
+# VITE_APP_URL: The URL where the portfolio is hosted
+VITE_APP_URL="http://localhost:3000"
+
 # TOTP Secret for Admin Authentication (base32 encoded)
-# Generate one at: https://it-tools.tech/otp-generator
 VITE_TOTP_SECRET="your_base32_encoded_secret_here"
 
-# Optional: Customize these if needed
-# VITE_API_URL=http://localhost:3000
-```
+# Email Configuration (Nodemailer)
+GMAIL_USER="your-email@gmail.com"
+GMAIL_APP_PASSWORD="your-google-app-password"
 
-**Note:** For production, always set `VITE_TOTP_SECRET` to a unique, secure value.
+# Supabase Database
+SUPABASE_URL="your-supabase-url"
+SUPABASE_SERVICE_KEY="your-supabase-service-key"
+```
 
 ### 4. Run Locally
 
+You will need two terminal windows to run both the frontend and the backend.
+
+**Terminal 1: Start the Backend**
+```bash
+cd backend
+npm install
+npm start
+```
+The API will start at `http://localhost:3001`
+
+**Terminal 2: Start the Frontend**
 ```bash
 npm run dev
 ```
-
-The app will start at `http://localhost:3000`
+The website will start at `http://localhost:3000`
 
 ## 🏗️ Project Structure
 

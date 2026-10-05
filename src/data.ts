@@ -9,7 +9,7 @@ export const PROJECTS: Project[] = [
     description: "A full-stack multi-agent financial assistant powered by Google Gemini 2.0 Flash. Features an Orchestrator with Health, Tax, and FIRE domain agents, a Tax Wizard with Old vs. New regime comparison and deduction modeling (80C, 80D, NPS, HRA), and a FIRE Path Planner generating month-by-month SIP and asset allocation roadmaps.",
     image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80&auto=format&fit=crop",
     techStack: ["React", "Node.js", "Express.js", "Gemini 2.0 Flash"],
-    githubUrl: "https://github.com/Rohon-kumar-dutta/ai-money-mentor",
+    githubUrl: "https://github.com/spidey-cloud/ai-money-mentor",
     liveUrl: "https://money-mentor-final.vercel.app/"
   },
   {
@@ -18,7 +18,7 @@ export const PROJECTS: Project[] = [
     description: "An offline-first Android fitness app built with MVVM and Clean Architecture to manage workouts, diet, and wellbeing. Integrates Google Health Connect SDK for bi-directional health data sync, Room DB and WorkManager for persistent storage, and features a Material 3 UI with dynamic colors, interactive charts, and an ML Kit powered barcode scanner.",
     image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80&auto=format&fit=crop",
     techStack: ["Kotlin", "Jetpack Compose", "Health Connect", "Room", "Hilt"],
-    githubUrl: "https://github.com/Rohon-kumar-dutta/fitlife",
+    githubUrl: "https://github.com/spidey-cloud/fitlife",
     liveUrl: "https://fitlife-d.pages.dev/"
   },
   {
@@ -27,7 +27,7 @@ export const PROJECTS: Project[] = [
     description: "A Django-based web application developed during internship at Euphoria Genx. Features user registration, booking requests, and service management with full backend logic, database integration, and web application development.",
     image: "https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=800&q=80&auto=format&fit=crop",
     techStack: ["Python", "Django", "SQLite", "HTML", "CSS"],
-    githubUrl: "https://github.com/Rohon-kumar-dutta",
+    githubUrl: "https://github.com/spidey-cloud/Mechanics-Booking",
     liveUrl: "#"
   }
 ];

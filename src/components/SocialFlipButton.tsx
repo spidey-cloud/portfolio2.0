@@ -17,6 +17,7 @@ export interface SocialItem {
   icon: React.ReactNode;
   label: string;
   href?: string;
+  target?: string;
   onClick?: () => void;
 }
 
@@ -71,10 +72,11 @@ const SocialFlipNode = ({
   itemClassName?: string;
   frontClassName?: string;
   backClassName?: string;
+  key?: React.Key;
 }) => {
   const Wrapper = item.href ? "a" : "div";
   const wrapperProps = item.href
-    ? { href: item.href, target: "_blank", rel: "noopener noreferrer" }
+    ? { href: item.href, target: item.target || "_blank", rel: "noopener noreferrer" }
     : { onClick: item.onClick };
   return (
     <Wrapper

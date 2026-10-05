@@ -15,7 +15,7 @@ export default function MusicSection() {
   const [activeSong, setActiveSong] = useState<Song | null>(null);
 
   const fetchSongs = () => {
-    setSongsList(loadSongs());
+    loadSongs().then(setSongsList);
   };
 
   useEffect(() => {

@@ -7,6 +7,7 @@ import {
   trackActivity,
 } from "../lib/storage";
 import { FileText, ExternalLink } from "lucide-react";
+import ResumeModal from "./ResumeModal";
 
 export default function About() {
   const [skills, setSkills] = useState<any[]>([]);
@@ -16,6 +17,7 @@ export default function About() {
     fileName: "",
     updatedAt: "",
   });
+  const [resumeOpen, setResumeOpen] = useState(false);
 
   useEffect(() => {
     // Load dynamic contents on component mount
@@ -25,8 +27,9 @@ export default function About() {
   }, []);
 
   // Handle resume tracking activity
-  const handleDownloadResume = () => {
+  const handleViewResume = () => {
     trackActivity("resume_download", `Viewed: ${resume.fileName}`);
+    setResumeOpen(true);
   };
 
   const containerVariants = {
@@ -115,16 +118,13 @@ export default function About() {
               variants={itemVariants}
               className="pt-6 border-t border-white/5"
             >
-              <a
-                href={resume.url || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleDownloadResume}
+              <button
+                onClick={handleViewResume}
                 className="inline-flex items-center gap-3 bg-[#F4EEE8] text-[#0B0B12] px-6 py-4 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.03] hover:bg-white cursor-pointer shadow-lg hover:shadow-white/10"
               >
                 <FileText className="w-4 h-4 text-[#0B0B12]" />
                 View Resume ({resume.fileName || "PDF"})
-              </a>
+              </button>
               <p className="text-[10px] text-[#A8A8B0] font-semibold tracking-widest uppercase mt-3 pl-2">
                 Last updated: {resume.updatedAt}
               </p>
@@ -195,6 +195,14 @@ export default function About() {
           </div>
         </motion.div>
       </div>
+
+      {/* Resume preview modal */}
+      <ResumeModal
+        isOpen={resumeOpen}
+        onClose={() => setResumeOpen(false)}
+        resumeUrl={resume.url}
+        fileName={resume.fileName}
+      />
     </section>
   );
 }

@@ -412,6 +412,15 @@ export default function AdminPanel({
     }
   };
 
+  // Helper to extract YouTube video ID and build thumbnail URL
+  const getYouTubeThumbnail = (url: string): string | null => {
+    if (!url) return null;
+    const match = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    );
+    return match ? `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg` : null;
+  };
+
   // Convert File uploads to base64 strings to simulate local photos upload
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB limit
 
@@ -587,8 +596,13 @@ export default function AdminPanel({
     let updatedSongs = [...songs];
 
     if (editingSong) {
+      const autoThumb = getYouTubeThumbnail(editingSong.youtubeUrl || "");
+      const finalCover = (!editingSong.coverUrl || editingSong.coverUrl.trim() === "") && autoThumb
+        ? autoThumb
+        : editingSong.coverUrl;
+
       updatedSongs = updatedSongs.map((s) =>
-        s.id === editingSong.id ? { ...editingSong } : s,
+        s.id === editingSong.id ? { ...editingSong, coverUrl: finalCover } : s,
       );
       setEditingSong(null);
     } else {
@@ -607,13 +621,15 @@ export default function AdminPanel({
         setUploadStatus("YouTube URL is invalid. Include https://");
         return;
       }
+
+      const autoThumb = getYouTubeThumbnail(newSong.youtubeUrl || "");
+      const finalCover = newSong.coverUrl || autoThumb || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400";
+
       const added: Song = {
         id: Math.random().toString(36).substring(2, 9),
         title: newSong.title,
         artist: newSong.artist,
-        coverUrl:
-          newSong.coverUrl ||
-          "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400",
+        coverUrl: finalCover,
         youtubeUrl: newSong.youtubeUrl || "https://youtube.com",
       };
       updatedSongs.push(added);
@@ -2135,25 +2151,34 @@ export default function AdminPanel({
                                 ? editingSong.youtubeUrl
                                 : newSong.youtubeUrl || ""
                             }
-                            onChange={(e) =>
-                              editingSong
-                                ? setEditingSong({
-                                    ...editingSong,
-                                    youtubeUrl: e.target.value,
-                                  })
-                                : setNewSong({
-                                    ...newSong,
-                                    youtubeUrl: e.target.value,
-                                  })
-                            }
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              const thumb = getYouTubeThumbnail(url);
+                              if (editingSong) {
+                                setEditingSong({
+                                  ...editingSong,
+                                  youtubeUrl: url,
+                                  coverUrl: (!editingSong.coverUrl || editingSong.coverUrl.includes("img.youtube.com")) && thumb ? thumb : editingSong.coverUrl,
+                                });
+                              } else {
+                                setNewSong({
+                                  ...newSong,
+                                  youtubeUrl: url,
+                                  coverUrl: (!newSong.coverUrl || newSong.coverUrl.includes("img.youtube.com")) && thumb ? thumb : newSong.coverUrl,
+                                });
+                              }
+                            }}
                             className="w-full bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
-                            placeholder="https://youtube.com/..."
+                            placeholder="https://youtube.com/watch?v=..."
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
-                            Song Cover Album Image
-                          </label>
+                          <div className="flex justify-between items-center">
+                            <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                              Song Cover Album Image
+                            </label>
+                            <span className="text-[9px] text-purple-400 font-medium">Auto-fetches from YouTube</span>
+                          </div>
                           <div className="flex gap-2">
                             <input
                               type="text"
@@ -2174,7 +2199,7 @@ export default function AdminPanel({
                                     })
                               }
                               className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
-                              placeholder="preset image or unsplash URL"
+                              placeholder="Auto-detected from YouTube or custom URL"
                             />
                             <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-xs px-3.5 py-2.5 border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide whitespace-nowrap">
                               Upload (Max 2MB)
@@ -2186,6 +2211,19 @@ export default function AdminPanel({
                               />
                             </label>
                           </div>
+                          {(editingSong?.coverUrl || newSong.coverUrl) && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <img
+                                src={editingSong ? editingSong.coverUrl : newSong.coverUrl}
+                                alt="thumbnail preview"
+                                className="w-9 h-9 object-cover rounded-md border border-white/10"
+                                referrerPolicy="no-referrer"
+                              />
+                              <span className="text-[10px] text-[#A3A3AA]">
+                                Thumbnail Preview
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

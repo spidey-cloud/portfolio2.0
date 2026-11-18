@@ -11,6 +11,7 @@ import Footer from "./components/Footer";
 import MouseEffectBackground from "./components/MouseEffectBackground";
 import AdminPage from "./pages/AdminPage";
 import { ToastContainer } from "./components/Toast";
+import LoadingScreen from "./components/LoadingScreen";
 
 export default function App() {
   const [route, setRoute] = useState<"portfolio" | "admin">(
@@ -62,6 +63,7 @@ export default function App() {
       className="relative min-h-screen text-[#F4EEE8] font-sans antialiased overflow-x-hidden selection:bg-[#F4EEE8] selection:text-[#0B0B12]"
       style={{ background: "var(--page-bg)" }}
     >
+      <LoadingScreen />
       <MouseEffectBackground dotSpacing={32} />
       <div className="noise-overlay" />
 

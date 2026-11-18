@@ -10,6 +10,7 @@ import BookCall from "./components/BookCall";
 import Footer from "./components/Footer";
 import MouseEffectBackground from "./components/MouseEffectBackground";
 import AdminPage from "./pages/AdminPage";
+import { ToastContainer } from "./components/Toast";
 
 export default function App() {
   const [route, setRoute] = useState<"portfolio" | "admin">(
@@ -50,6 +51,7 @@ export default function App() {
       >
         <div className="noise-overlay" />
         <AdminPage onDataChange={handleDataChange} />
+        <ToastContainer />
       </div>
     );
   }
@@ -80,6 +82,7 @@ export default function App() {
           window.location.hash = "#/admin";
         }}
       />
+      <ToastContainer />
     </div>
   );
 }

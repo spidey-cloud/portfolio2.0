@@ -46,6 +46,7 @@ import {
   is2FAEnabled,
   set2FAEnabled,
 } from "../lib/totp";
+import { toast } from "./Toast";
 import {
   validateShortText,
   validateLongText,
@@ -178,14 +179,19 @@ export default function AdminPanel({
     try {
       const res = await fetch(`${API_BASE}/api/bookings/${id}/${action}`, { method: 'POST' });
       if (res.ok) {
-        setUploadStatus(`Booking ${action}ed successfully.`);
+        const msg = `Booking ${action}ed successfully.`;
+        setUploadStatus(msg);
+        toast.success(msg);
         const updated = await fetch(`${API_BASE}/api/bookings`).then(r => r.json());
         setApiBookings(Array.isArray(updated) ? updated : []);
       } else {
-        setUploadStatus(`Failed to ${action} booking.`);
+        const err = `Failed to ${action} booking.`;
+        setUploadStatus(err);
+        toast.error(err);
       }
     } catch(e: any) {
       setUploadStatus(`Error: ${e.message}`);
+      toast.error(`Error: ${e.message}`);
     }
   };
 
@@ -364,6 +370,7 @@ export default function AdminPanel({
 
     setProjects(updatedProjects);
     saveProjects(updatedProjects);
+    toast.success(editingProject ? "Project updated successfully!" : "New project added successfully!");
     onDataChange();
   };
 
@@ -372,6 +379,7 @@ export default function AdminPanel({
     const updated = projects.filter((p) => p.id !== id);
     setProjects(updated);
     saveProjects(updated);
+    toast.success("Project deleted successfully!");
     onDataChange();
   };
 
@@ -405,6 +413,8 @@ export default function AdminPanel({
   };
 
   // Convert File uploads to base64 strings to simulate local photos upload
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB limit
+
   const handlePhotoUpload = (
     e: ChangeEvent<HTMLInputElement>,
     target: "project" | "project-video" | "avatar" | "song" | "resume",
@@ -412,11 +422,18 @@ export default function AdminPanel({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_FILE_SIZE) {
+      const err = `File "${file.name}" exceeds the 2MB limit (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file under 2 MB.`;
+      setUploadStatus(err);
+      toast.error(err);
+      e.target.value = "";
+      return;
+    }
+
     setUploadStatus("Processing...");
     const reader = new FileReader();
 
     if (target === "resume") {
-      // Simulate file upload metadata
       setTimeout(() => {
         const updatedResume = {
           url: "#",
@@ -425,7 +442,9 @@ export default function AdminPanel({
         };
         setResume(updatedResume);
         saveResume(updatedResume);
-        setUploadStatus(`Success: ${file.name} saved locally!`);
+        const msg = `Resume document ${file.name} saved!`;
+        setUploadStatus(msg);
+        toast.success(msg);
         onDataChange();
       }, 800);
       return;
@@ -440,6 +459,7 @@ export default function AdminPanel({
           setNewProject({ ...newProject, image: base64String });
         }
         setUploadStatus("Project cover image uploaded successfully!");
+        toast.success("Project cover image uploaded!");
       } else if (target === "project-video") {
         if (editingProject) {
           setEditingProject({ ...editingProject, videoUrl: base64String });
@@ -447,11 +467,13 @@ export default function AdminPanel({
           setNewProject({ ...newProject, videoUrl: base64String });
         }
         setUploadStatus("Project demo video uploaded successfully!");
+        toast.success("Project video uploaded!");
       } else if (target === "avatar") {
         const updatedAvatar = { ...avatar, url: base64String };
         setAvatar(updatedAvatar);
         saveAvatar(updatedAvatar);
         setUploadStatus("Profile photo updated successfully!");
+        toast.success("Profile photo updated!");
         onDataChange();
       } else if (target === "song") {
         if (editingSong) {
@@ -460,6 +482,7 @@ export default function AdminPanel({
           setNewSong({ ...newSong, coverUrl: base64String });
         }
         setUploadStatus("Song cover image updated successfully!");
+        toast.success("Song cover image updated!");
       }
     };
     reader.readAsDataURL(file);
@@ -480,6 +503,7 @@ export default function AdminPanel({
     setSkills(updated);
     saveSkills(updated);
     setNewSkillText({ ...newSkillText, [catId]: "" });
+    toast.success(`Skill "${text.trim()}" added!`);
     onDataChange();
   };
 
@@ -493,6 +517,7 @@ export default function AdminPanel({
 
     setSkills(updated);
     saveSkills(updated);
+    toast.success(`Skill "${skill}" removed!`);
     onDataChange();
   };
 
@@ -543,6 +568,7 @@ export default function AdminPanel({
 
     setWorkUpdates(updatedWork);
     saveWorkUpdates(updatedWork);
+    toast.success(editingWork ? "Work experience updated!" : "Work experience added!");
     onDataChange();
   };
 
@@ -551,6 +577,7 @@ export default function AdminPanel({
     const updated = workUpdates.filter((w) => w.id !== id);
     setWorkUpdates(updated);
     saveWorkUpdates(updated);
+    toast.success("Work record deleted!");
     onDataChange();
   };
 
@@ -576,8 +603,8 @@ export default function AdminPanel({
         return;
       }
 
-      if (newSong.spotifyUrl && !validateUrl(newSong.spotifyUrl).ok) {
-        setUploadStatus("Spotify URL is invalid. Include https://");
+      if (newSong.youtubeUrl && !validateUrl(newSong.youtubeUrl).ok) {
+        setUploadStatus("YouTube URL is invalid. Include https://");
         return;
       }
       const added: Song = {
@@ -595,6 +622,7 @@ export default function AdminPanel({
 
     setSongs(updatedSongs);
     saveSongs(updatedSongs);
+    toast.success(editingSong ? "Song recommendation updated!" : "Song recommendation added!");
     onDataChange();
   };
 
@@ -603,14 +631,20 @@ export default function AdminPanel({
     const updated = songs.filter((s) => s.id !== id);
     setSongs(updated);
     saveSongs(updated);
+    toast.success("Song removed from recommendations!");
     onDataChange();
   };
 
-  const handleUpdateAvatarDetails = (e: FormEvent) => {
+  const handleUpdateAvatarDetails = async (e: FormEvent) => {
     e.preventDefault();
-    saveAvatar(avatar);
-    setUploadStatus("Profile settings saved successfully!");
-    onDataChange();
+    try {
+      await saveAvatar(avatar);
+      setUploadStatus("Profile settings saved successfully!");
+      toast.success("Profile settings saved successfully!");
+      onDataChange();
+    } catch (err: any) {
+      toast.error("Failed to save profile settings");
+    }
   };
 
   // 5. ANALYTICS CALCULATIONS
@@ -1264,9 +1298,12 @@ export default function AdminPanel({
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider flex items-center gap-1.5">
-                          Cover Image
-                        </label>
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider flex items-center gap-1.5">
+                            Cover Image
+                          </label>
+                          <span className="text-[9px] text-[#A3A3AA] font-mono">Limit: 2 MB</span>
+                        </div>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -1287,10 +1324,10 @@ export default function AdminPanel({
                                   })
                             }
                             className="flex-1 bg-[#16161c] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-[#F4EEE8] outline-none focus:border-purple-400"
-                            placeholder="Paste image URL or upload"
+                            placeholder="Paste image URL or upload (Max 2MB)"
                           />
                           <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-xs px-3.5 py-2.5 border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
-                            Upload
+                            Upload (Max 2MB)
                             <input
                               type="file"
                               accept="image/*"
@@ -1663,11 +1700,14 @@ export default function AdminPanel({
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
-                          Virtual File Upload
-                        </label>
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                            Virtual File Upload
+                          </label>
+                          <span className="text-[9px] text-[#A3A3AA] font-mono">Limit: 2 MB</span>
+                        </div>
                         <label className="cursor-pointer bg-white/5 hover:bg-white/10 w-full h-[38px] border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide transition-all">
-                          Select Document (.pdf)
+                          Select Document (.pdf, Max 2MB)
                           <input
                             type="file"
                             accept=".pdf,application/pdf"
@@ -1939,14 +1979,20 @@ export default function AdminPanel({
                     <h4 className="text-xs font-bold uppercase tracking-widest text-[#F4EEE8] flex items-center gap-2">
                       <Image className="w-4 h-4 text-purple-400" /> profile
                       avatar settings
+                      <span className="text-[10px] text-amber-400/90 font-mono font-medium lowercase bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                        max 2 MB
+                      </span>
                     </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                       <div className="space-y-3">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
-                            Avatar Image URL
-                          </label>
+                          <div className="flex justify-between items-center">
+                            <label className="text-[10px] uppercase text-[#A3A3AA] font-bold tracking-wider">
+                              Avatar Image URL
+                            </label>
+                            <span className="text-[9px] text-[#A3A3AA] font-mono">Limit: 2 MB</span>
+                          </div>
                           <div className="flex gap-2">
                             <input
                               type="text"
@@ -1958,7 +2004,7 @@ export default function AdminPanel({
                               placeholder="Preset photo url"
                             />
                             <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-xs px-3.5 py-2.5 border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide whitespace-nowrap">
-                              Upload File
+                              Upload (Max 2MB)
                               <input
                                 type="file"
                                 accept="image/*"
@@ -2131,7 +2177,7 @@ export default function AdminPanel({
                               placeholder="preset image or unsplash URL"
                             />
                             <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-xs px-3.5 py-2.5 border border-white/5 rounded-xl flex items-center justify-center font-bold uppercase text-[10px] tracking-wide whitespace-nowrap">
-                              Upload File
+                              Upload (Max 2MB)
                               <input
                                 type="file"
                                 accept="image/*"

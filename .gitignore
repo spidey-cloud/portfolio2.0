@@ -8,3 +8,4 @@ coverage/
 # Ignore local environment files, but keep the example config
 .env*
 !.env.example
+.turso.txt

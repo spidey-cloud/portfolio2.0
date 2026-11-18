@@ -2,10 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { loadAvatar, trackActivity } from "../lib/storage";
 
-export default function Hero() {
+interface HeroProps {
+  isReady?: boolean;
+}
+
+export default function Hero({ isReady = true }: HeroProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [avatarData, setAvatarData] = useState({
-    url: "/static/images/profile_avatar_1784406141109.jpg",
+    url: "/avatar.webp",
     statusText: "I'm Open to work",
   });
   const heroRef = useRef<HTMLElement | null>(null);
@@ -94,7 +98,7 @@ export default function Hero() {
         <div className="w-full flex flex-col items-center justify-center leading-[0.8] select-none relative">
           <motion.h1
             initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            animate={isReady ? { y: 0, opacity: 1 } : { y: 80, opacity: 0 }}
             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             className="text-[#F4EEE8] font-black text-center uppercase tracking-[-0.05em] leading-[0.85] select-none"
             style={{ fontSize: "clamp(64px, 12.5vw, 160px)" }}
@@ -107,7 +111,7 @@ export default function Hero() {
 
           <motion.h1
             initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            animate={isReady ? { y: 0, opacity: 1 } : { y: 80, opacity: 0 }}
             transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             className="text-[#F4EEE8] font-black text-center uppercase tracking-[-0.05em] leading-[0.85] select-none"
             style={{ fontSize: "clamp(64px, 12.5vw, 160px)" }}
@@ -124,7 +128,7 @@ export default function Hero() {
           onMouseLeave={() => setIsHovered(false)}
           onClick={() => setIsHovered(!isHovered)}
           initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+          animate={isReady ? { scale: 1, opacity: 1 } : { scale: 0.8, opacity: 0 }}
           transition={{
             duration: 1.2,
             delay: 0.2,
@@ -180,7 +184,7 @@ export default function Hero() {
         {/* Bottom Left */}
         <motion.div
           initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          animate={isReady ? { x: 0, opacity: 1 } : { x: -30, opacity: 0 }}
           transition={{ duration: 1, delay: 0.4 }}
           className="max-w-[340px] text-left flex flex-col space-y-2"
         >
@@ -204,7 +208,7 @@ export default function Hero() {
         {/* Bottom Right */}
         <motion.div
           initial={{ x: 30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          animate={isReady ? { x: 0, opacity: 1 } : { x: 30, opacity: 0 }}
           transition={{ duration: 1, delay: 0.4 }}
           className="max-w-[340px] md:justify-self-end text-left md:text-right flex flex-col space-y-2"
         >

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 
-export default function LoadingScreen() {
+interface LoadingScreenProps {
+  onComplete?: () => void;
+}
+
+export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
 
@@ -8,6 +12,7 @@ export default function LoadingScreen() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
       setDone(true);
+      onComplete?.();
       return;
     }
     const start = performance.now();
@@ -20,7 +25,10 @@ export default function LoadingScreen() {
       if (pct < 100) {
         frame = requestAnimationFrame(tick);
       } else {
-        timer = setTimeout(() => setDone(true), 450);
+        timer = setTimeout(() => {
+          setDone(true);
+          onComplete?.();
+        }, 450);
       }
     }
 
@@ -29,7 +37,7 @@ export default function LoadingScreen() {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
     };
-  }, []);
+  }, [onComplete]);
 
   if (done) return null;
 

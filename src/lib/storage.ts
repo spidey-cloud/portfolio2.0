@@ -64,7 +64,7 @@ const DEFAULT_RESUME = {
 };
 
 const DEFAULT_AVATAR = {
-  url: "/static/images/profile_avatar_1784406141109.jpg",
+  url: "/avatar.webp",
   statusText: "I'm Open to work",
 };
 

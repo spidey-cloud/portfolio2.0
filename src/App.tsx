@@ -14,6 +14,7 @@ import { ToastContainer } from "./components/Toast";
 import LoadingScreen from "./components/LoadingScreen";
 
 export default function App() {
+  const [loadingDone, setLoadingDone] = useState(false);
   const [route, setRoute] = useState<"portfolio" | "admin">(
     window.location.hash === "#/admin" ? "admin" : "portfolio",
   );
@@ -63,14 +64,14 @@ export default function App() {
       className="relative min-h-screen text-[#F4EEE8] font-sans antialiased overflow-x-hidden selection:bg-[#F4EEE8] selection:text-[#0B0B12]"
       style={{ background: "var(--page-bg)" }}
     >
-      <LoadingScreen />
+      <LoadingScreen onComplete={() => setLoadingDone(true)} />
       <MouseEffectBackground dotSpacing={32} />
       <div className="noise-overlay" />
 
       <Navbar />
 
       <main className="relative z-10 w-full flex flex-col">
-        <Hero />
+        <Hero isReady={loadingDone} />
         <About />
         <Skills />
         <MusicSection />

@@ -591,64 +591,83 @@ export default function AdminPanel({
   };
 
   // 4. PHOTO/SONG HANDLERS
-  const handleSaveSong = (e: FormEvent) => {
+  const handleSaveSong = async (e: FormEvent) => {
     e.preventDefault();
     let updatedSongs = [...songs];
 
-    if (editingSong) {
-      const autoThumb = getYouTubeThumbnail(editingSong.youtubeUrl || "");
-      const finalCover = (!editingSong.coverUrl || editingSong.coverUrl.trim() === "") && autoThumb
-        ? autoThumb
-        : editingSong.coverUrl;
+    try {
+      if (editingSong) {
+        let yt = (editingSong.youtubeUrl || "").trim();
+        if (yt && !/^https?:\/\//i.test(yt)) yt = "https://" + yt;
 
-      updatedSongs = updatedSongs.map((s) =>
-        s.id === editingSong.id ? { ...editingSong, coverUrl: finalCover } : s,
-      );
-      setEditingSong(null);
-    } else {
-      const titleV = validateShortText(newSong.title || "");
-      const artistV = validateShortText(newSong.artist || "");
-      if (!titleV.ok) {
-        setUploadStatus(titleV.error);
-        return;
+        const autoThumb = getYouTubeThumbnail(yt);
+        const finalCover = (!editingSong.coverUrl || editingSong.coverUrl.trim() === "") && autoThumb
+          ? autoThumb
+          : editingSong.coverUrl;
+
+        updatedSongs = updatedSongs.map((s) =>
+          s.id === editingSong.id ? { ...editingSong, youtubeUrl: yt, coverUrl: finalCover } : s,
+        );
+      } else {
+        const titleV = validateShortText(newSong.title || "");
+        const artistV = validateShortText(newSong.artist || "");
+        if (!titleV.ok) {
+          toast.error(titleV.error || "Song title is required");
+          return;
+        }
+        if (!artistV.ok) {
+          toast.error(artistV.error || "Artist name is required");
+          return;
+        }
+
+        let yt = (newSong.youtubeUrl || "").trim();
+        if (yt && !/^https?:\/\//i.test(yt)) yt = "https://" + yt;
+
+        if (yt && !validateUrl(yt).ok) {
+          toast.error("YouTube URL is invalid");
+          return;
+        }
+
+        const autoThumb = getYouTubeThumbnail(yt);
+        const finalCover = newSong.coverUrl || autoThumb || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400";
+
+        const added: Song = {
+          id: Math.random().toString(36).substring(2, 9),
+          title: newSong.title || "Untitled",
+          artist: newSong.artist || "Unknown Artist",
+          coverUrl: finalCover,
+          youtubeUrl: yt || "https://youtube.com",
+        };
+        updatedSongs.push(added);
       }
-      if (!artistV.ok) {
-        setUploadStatus(artistV.error);
-        return;
+
+      await saveSongs(updatedSongs);
+      setSongs(updatedSongs);
+      if (editingSong) {
+        setEditingSong(null);
+      } else {
+        setNewSong({ title: "", artist: "", coverUrl: "", youtubeUrl: "" });
       }
-
-      if (newSong.youtubeUrl && !validateUrl(newSong.youtubeUrl).ok) {
-        setUploadStatus("YouTube URL is invalid. Include https://");
-        return;
-      }
-
-      const autoThumb = getYouTubeThumbnail(newSong.youtubeUrl || "");
-      const finalCover = newSong.coverUrl || autoThumb || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400";
-
-      const added: Song = {
-        id: Math.random().toString(36).substring(2, 9),
-        title: newSong.title,
-        artist: newSong.artist,
-        coverUrl: finalCover,
-        youtubeUrl: newSong.youtubeUrl || "https://youtube.com",
-      };
-      updatedSongs.push(added);
-      setNewSong({ title: "", artist: "", coverUrl: "", youtubeUrl: "" });
+      toast.success(editingSong ? "Song recommendation updated!" : "Song recommendation added!");
+      onDataChange();
+    } catch (err: any) {
+      console.error("Save song error:", err);
+      toast.error(`Failed to save song: ${err?.message || "Server error"}`);
     }
-
-    setSongs(updatedSongs);
-    saveSongs(updatedSongs);
-    toast.success(editingSong ? "Song recommendation updated!" : "Song recommendation added!");
-    onDataChange();
   };
 
-  const handleDeleteSong = (id: string) => {
+  const handleDeleteSong = async (id: string) => {
     if (!confirm("Are you sure you want to delete this song?")) return;
     const updated = songs.filter((s) => s.id !== id);
-    setSongs(updated);
-    saveSongs(updated);
-    toast.success("Song removed from recommendations!");
-    onDataChange();
+    try {
+      await saveSongs(updated);
+      setSongs(updated);
+      toast.success("Song removed from recommendations!");
+      onDataChange();
+    } catch (err: any) {
+      console.error("Delete song error:", err);
+      toast.error(`Failed to delete song: ${err?.message || "Server error"}`);
+    }
   };
 
   const handleUpdateAvatarDetails = async (e: FormEvent) => {
@@ -673,13 +692,21 @@ export default function AdminPanel({
   ).length;
   const bookings = logs.filter((l) => l.type === "book_call_success").length;
 
-  const handleClearActivities = () => {
+  const handleClearActivities = async () => {
     if (
       !confirm("Clear all website activity analytics? This cannot be undone.")
     )
       return;
-    clearActivities();
+    await clearActivities();
     setLogs([]);
+    toast.success("Analytics cleared");
+  };
+
+  const handleRefreshAnalytics = () => {
+    loadActivityLogs().then((data) => {
+      setLogs(data);
+      toast.success(`Refreshed — ${data.length} log${data.length !== 1 ? "s" : ""} loaded`);
+    });
   };
 
   if (!isOpen) return null;
@@ -1011,12 +1038,20 @@ export default function AdminPanel({
                         Track real-time interaction logs and overall metrics.
                       </p>
                     </div>
-                    <button
-                      onClick={handleClearActivities}
-                      className="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3.5 py-2 rounded-xl hover:bg-rose-500/20 transition-all cursor-pointer font-bold tracking-wide flex items-center gap-1.5"
-                    >
-                      <Trash className="w-3.5 h-3.5" /> Clear Analytics
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleRefreshAnalytics}
+                        className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3.5 py-2 rounded-xl hover:bg-blue-500/20 transition-all cursor-pointer font-bold tracking-wide flex items-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                      </button>
+                      <button
+                        onClick={handleClearActivities}
+                        className="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3.5 py-2 rounded-xl hover:bg-rose-500/20 transition-all cursor-pointer font-bold tracking-wide flex items-center gap-1.5"
+                      >
+                        <Trash className="w-3.5 h-3.5" /> Clear Analytics
+                      </button>
+                    </div>
                   </div>
 
                   {/* Summary Metric Cards */}

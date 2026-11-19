@@ -29,6 +29,7 @@
   --border-color-strong: rgba(255, 255, 255, 0.1);
   --btn-bg: #F4EEE8;
   --btn-text: #0B0B12;
+  --hero-glow: radial-gradient(circle at top, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 35%, transparent 80%);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -64,27 +65,24 @@
 }
 
 :root.light-theme {
-  --bg: #FCF5EA; /* warmer cream background */
-  --page-bg: radial-gradient(circle at 18% 16%, rgba(235, 246, 255, 0.92) 0%, rgba(187, 216, 245, 0.82) 26%, transparent 50%),
-              radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.94) 0%, rgba(236, 244, 252, 0.72) 22%, transparent 48%),
-              radial-gradient(circle at 18% 86%, rgba(255, 247, 230, 0.94) 0%, rgba(250, 236, 215, 0.56) 24%, transparent 50%),
-              radial-gradient(circle at 84% 86%, rgba(227, 218, 239, 0.86) 0%, rgba(217, 206, 237, 0.28) 26%, transparent 52%),
-              linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(220, 236, 250, 0.88) 24%, rgba(182, 205, 231, 0.96) 52%, rgba(249, 237, 218, 1) 100%);
-  --card-bg: #FFF6EE; /* soft warm card surface */
-  --card-bg-2: #F9E2D1; /* gentle peachy secondary surface */
-  --section-bg: rgba(222, 236, 249, 0.94); /* pale azure section fill */
-  --section-surface: rgba(255, 255, 255, 0.70); /* translucent light card surface */
-  --surface-soft: rgba(237, 245, 255, 0.85); /* subtle lifted surface */
-  --surface-muted: rgba(234, 237, 248, 0.65); /* muted overlay tone */
-  --text-primary: #111017; /* strong near-black text */
-  --text-secondary: #8B6B4F; /* richer warm secondary text */
-  --text-muted: #9C7F67; /* soft warm muted text */
-  --accent: #B36A3D; /* warm accent for links and hovers */
-  --accent-soft: rgba(179, 106, 61, 0.14); /* subtle warm hover background */
-  --border-color: rgba(17, 17, 23, 0.12); /* subtle warm border */
-  --border-color-strong: rgba(17, 17, 23, 0.22); /* stronger warm border */
-  --btn-bg: #0F0F16; /* dark CTA background */
-  --btn-text: #FAF8F5; /* warm white CTA text */
+  --bg: #FDF4DC;
+  --page-bg: #FDF4DC;
+  --card-bg: #FFF9EE;
+  --card-bg-2: #F5E8C3;
+  --section-bg: #F8EFD4;
+  --section-surface: rgba(255, 255, 255, 0.75);
+  --surface-soft: rgba(255, 251, 240, 0.9);
+  --surface-muted: rgba(243, 233, 206, 0.75);
+  --text-primary: #0F0E0B;
+  --text-secondary: #241D12;
+  --text-muted: #3D3322;
+  --accent: #A35824;
+  --accent-soft: rgba(163, 88, 36, 0.12);
+  --border-color: rgba(15, 14, 11, 0.14);
+  --border-color-strong: rgba(15, 14, 11, 0.24);
+  --btn-bg: #0F0E0B;
+  --btn-text: #FDF4DC;
+  --hero-glow: radial-gradient(circle at top, rgba(255, 255, 255, 0.96) 0%, rgba(255, 253, 245, 0.8) 35%, rgba(253, 244, 220, 0) 80%);
 }
 
 /* Custom smooth scroll simulation */
@@ -112,11 +110,11 @@ html, body {
 }
 
 :root.light-theme .bg-\[\#3b3b4f\] {
-  background-color: rgba(189, 205, 226, 0.26) !important;
+  background-color: rgba(255, 255, 255, 0.6) !important;
 }
 
 :root.light-theme .bg-\[\#1c142c\] {
-  background-color: rgba(220, 227, 246, 0.18) !important;
+  background-color: rgba(255, 252, 242, 0.7) !important;
 }
 
 :root.light-theme .bg-\[\#171721\] {
@@ -169,11 +167,11 @@ html, body {
 }
 
 :root.light-theme .text-white\/30 {
-  color: rgba(15, 15, 22, 0.35) !important;
+  color: rgba(15, 14, 11, 0.70) !important;
 }
 
 :root.light-theme .text-white\/20 {
-  color: rgba(15, 15, 22, 0.25) !important;
+  color: rgba(15, 14, 11, 0.55) !important;
 }
 
 /* Border overrides */
@@ -192,7 +190,7 @@ html, body {
 }
 
 :root.light-theme .border-white\/30 {
-  border-color: rgba(15, 15, 22, 0.3) !important;
+  border-color: rgba(15, 14, 11, 0.65) !important;
 }
 
 :root.light-theme .border-white\/40 {
@@ -227,7 +225,7 @@ html, body {
 }
 
 :root.light-theme .decoration-white\/30 {
-  text-decoration-color: rgba(15, 15, 22, 0.3) !important;
+  text-decoration-color: rgba(15, 14, 11, 0.65) !important;
 }
 
 :root.light-theme .decoration-white\/40 {
@@ -270,7 +268,7 @@ html, body {
 :root.light-theme .bg-\[\#1c142c\],
 :root.light-theme .bg-\[\#3b3b4f\],
 :root.light-theme .bg-\[\#1e1a3a\] {
-  background-color: rgba(127, 127, 229, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 :root.light-theme .bg-\[radial-gradient\(circle\,rgba\(255\,255\,255\,0\.06\)_0\%\,transparent_70\%\)\] {
@@ -279,7 +277,7 @@ html, body {
 
 /* AdminGateway text fallback */
 :root.light-theme .text-white\/20 {
-  color: rgba(15, 15, 22, 0.3) !important;
+  color: rgba(15, 14, 11, 0.65) !important;
 }
 
 /* Calendar selected date contrast */
@@ -306,6 +304,17 @@ html, body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+:root.light-theme ::-webkit-scrollbar-track {
+  background: #EDE5C8;
+}
+:root.light-theme ::-webkit-scrollbar-thumb {
+  background: rgba(26, 21, 11, 0.18);
+  border-radius: 999px;
+}
+:root.light-theme ::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 21, 11, 0.32);
 }
 
 /* Custom utility to hide scrollbars on horizontal rows */

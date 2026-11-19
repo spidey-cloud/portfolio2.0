@@ -85,9 +85,12 @@ export default function Hero({ isReady = true }: HeroProps) {
       ref={heroRef}
       className="relative w-full min-h-screen bg-transparent flex flex-col justify-between px-6 md:px-12 pt-[120px] pb-12 overflow-hidden select-none animate-fade-in"
     >
-      {/* Background artwork matching the premium light blue hero field */}
+      {/* Background artwork: warm white spotlight at top, zero blue */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-x-0 top-0 h-[55vh] bg-[radial-gradient(circle_at_top,rgba(217,232,247,0.96)_0%,rgba(183,210,234,0.7)_35%,transparent_80%)]" />
+        <div
+          className="absolute inset-x-0 top-0 h-[55vh]"
+          style={{ background: "var(--hero-glow)" }}
+        />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-[80vw] h-[80vw] max-w-[780px] max-h-[780px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,transparent_70%)] blur-[28px]" />
         </div>

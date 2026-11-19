@@ -6,6 +6,7 @@ interface LoadingScreenProps {
 
 export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0);
+  const [slidingUp, setSlidingUp] = useState(false);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -15,27 +16,50 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
       onComplete?.();
       return;
     }
+
+    const DURATION = 4500; // ~3.5s moderate pace
     const start = performance.now();
     let frame = 0;
-    let timer: NodeJS.Timeout | number;
+    let timer1: NodeJS.Timeout | number;
+    let timer2: NodeJS.Timeout | number;
+    let timer3: NodeJS.Timeout | number;
 
     function tick(now: number) {
-      const pct = Math.min(100, Math.floor((now - start) / 30));
+      const elapsed = now - start;
+      const progressFrac = Math.min(1, elapsed / DURATION);
+
+      // Smooth ease-out deceleration curve towards 100%
+      const easeProgress = 1 - Math.pow(1 - progressFrac, 1.35);
+      const pct = Math.min(100, Math.floor(easeProgress * 100));
+
       setProgress(pct);
+
       if (pct < 100) {
         frame = requestAnimationFrame(tick);
       } else {
-        timer = setTimeout(() => {
-          setDone(true);
-          onComplete?.();
-        }, 450);
+        // Brief 300ms pause at 100% before curtain slide-up
+        timer1 = setTimeout(() => {
+          setSlidingUp(true);
+
+          // Trigger hero reveal slightly after the curtain starts lifting
+          timer2 = setTimeout(() => {
+            onComplete?.();
+          }, 200);
+
+          // Unmount after curtain completely leaves viewport (900ms transition)
+          timer3 = setTimeout(() => {
+            setDone(true);
+          }, 950);
+        }, 300);
       }
     }
 
     frame = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(frame);
-      clearTimeout(timer);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
     };
   }, [onComplete]);
 
@@ -53,9 +77,11 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
         color: "#000",
         display: "grid",
         placeItems: "center",
-        opacity: progress === 100 ? 0 : 1,
-        transition: "opacity 450ms ease",
-        pointerEvents: progress === 100 ? "none" : "auto",
+        transform: slidingUp ? "translateY(-100%)" : "translateY(0%)",
+        transition: "transform 900ms cubic-bezier(0.77, 0, 0.175, 1)",
+        boxShadow: slidingUp ? "0 30px 60px rgba(0, 0, 0, 0.3)" : "none",
+        pointerEvents: slidingUp ? "none" : "auto",
+        willChange: "transform",
       }}
     >
       <img
@@ -63,7 +89,13 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
         alt=""
         width={450}
         height={450}
-        style={{ width: "min(80vw, 54vh, 450px)", height: "auto" }}
+        style={{
+          width: "min(80vw, 54vh, 450px)",
+          height: "auto",
+          transition: "opacity 300ms ease, transform 300ms ease",
+          opacity: slidingUp ? 0.8 : 1,
+          transform: slidingUp ? "scale(0.96)" : "scale(1)",
+        }}
       />
       <span
         aria-hidden="true"

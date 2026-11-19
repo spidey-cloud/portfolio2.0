@@ -47,10 +47,10 @@ export default function Navbar() {
       className={`fixed top-0 left-0 w-full h-[90px] z-50 flex items-center justify-between px-6 md:px-12 transition-all duration-500 ${
         isScrolled
           ? theme === "light"
-            ? "bg-white/70 backdrop-blur-md border-b border-black/5"
+            ? "bg-[#FDF4DC]/80 backdrop-blur-md border-b border-black/5"
             : "bg-[#0B0B12]/80 backdrop-blur-md border-b border-white/5"
           : theme === "light"
-            ? "bg-white/30 backdrop-blur-sm"
+            ? "bg-[#FDF4DC]/40 backdrop-blur-sm"
             : "bg-transparent"
       }`}
     >

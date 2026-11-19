@@ -1,1 +1,0 @@
-We are thrilled to announce the launch of Portfolio 2.0. By leveraging real-time enterprise-grade TOTP authentication and the power of React 19, we are fundamentally rethinking how personal websites scale. Read more about our journey on Medium.

@@ -85,7 +85,7 @@ function safeUrl(url: unknown, fallback = ""): string {
 // ---------------------------------------------------------------------------
 // STORAGE ACTIONS (API Backend)
 // ---------------------------------------------------------------------------
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export async function loadProjects(): Promise<Project[]> {
   try {
@@ -136,24 +136,49 @@ export async function saveSkills(skills: SkillCategory[]) {
 export async function loadSongs(): Promise<Song[]> {
   try {
     const res = await fetch(`${API_URL}/api/songs`);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) return data;
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        try {
+          localStorage.setItem("portfolio-songs", JSON.stringify(data));
+        } catch (_) {}
+        return data;
+      }
+    }
   } catch (e) {
-    console.error("Failed to load songs", e);
+    console.error("Failed to load songs from API", e);
   }
+
+  // Fallback to local storage if API is temporarily unavailable
+  try {
+    const cached = localStorage.getItem("portfolio-songs");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (_) {}
+
   return RECOMMENDED_SONGS;
 }
 
-export async function saveSongs(songs: Song[]) {
+export async function saveSongs(songs: Song[]): Promise<boolean> {
+  // Update localStorage immediately
   try {
-    await fetch(`${API_URL}/api/songs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(songs),
-    });
-  } catch (e) {
-    console.error("Failed to save songs", e);
+    localStorage.setItem("portfolio-songs", JSON.stringify(songs));
+  } catch (_) {}
+
+  const res = await fetch(`${API_URL}/api/songs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(songs),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Server returned ${res.status}`);
   }
+
+  return true;
 }
 
 export async function loadWorkUpdates(): Promise<WorkUpdate[]> {
@@ -263,7 +288,9 @@ export async function trackActivity(
 }
 
 export async function clearActivities() {
-  // Clearing not explicitly implemented in backend yet, but we can do it via a special POST or DELETE.
-  // We'll skip for now or we could add a DELETE endpoint later.
-  console.log("clearActivities called - not implemented on backend yet");
+  try {
+    await fetch(`${API_URL}/api/activity-logs`, { method: "DELETE" });
+  } catch (e) {
+    console.error("Failed to clear activity logs", e);
+  }
 }

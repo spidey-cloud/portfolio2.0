@@ -17,8 +17,72 @@
 }
 </script>
   <meta charset="UTF-8" />
-  <meta name="description" content="Official portfolio of Rohon Kumar Dutta, a web developer specializing in React, Next.js, and modern web applications.initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <meta name="description" content="Official portfolio of Rohon Kumar Dutta, a web developer specializing in React, Next.js, and modern web applications." />
   <title>Rohon Kumar Dutta | Portfolio & Web Developer</title>
+
+  <!-- Prevent zoom out below 100% -->
+  <script>
+    (function () {
+      // 1. Detect base device pixel ratio (100% zoom level)
+      var baseDPR = parseFloat(sessionStorage.getItem('app-base-dpr') || '0');
+      if (!baseDPR || baseDPR <= 0) {
+        baseDPR = window.devicePixelRatio || 1;
+        try {
+          sessionStorage.setItem('app-base-dpr', String(baseDPR));
+        } catch (_) {}
+      }
+
+      function enforceMinZoom() {
+        var currentDPR = window.devicePixelRatio || 1;
+        // If zoom drops below 100%, compensate with CSS zoom so content never shrinks below 100%
+        if (currentDPR < baseDPR - 0.01) {
+          var scale = (baseDPR / currentDPR);
+          document.documentElement.style.zoom = scale;
+        } else {
+          document.documentElement.style.zoom = '1';
+        }
+      }
+
+      // 2. Intercept keyboard shortcuts (Ctrl/Cmd + Minus / NumpadSubtract)
+      window.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && (
+          e.key === '-' || e.key === '_' ||
+          e.code === 'NumpadSubtract' ||
+          e.keyCode === 189 || e.keyCode === 109
+        )) {
+          var currentDPR = window.devicePixelRatio || 1;
+          if (currentDPR <= baseDPR + 0.01) {
+            e.preventDefault();
+          }
+        }
+      }, { passive: false });
+
+      // 3. Intercept Ctrl + MouseWheel / trackpad pinch-zoom out
+      window.addEventListener('wheel', function (e) {
+        if (e.ctrlKey && e.deltaY > 0) {
+          var currentDPR = window.devicePixelRatio || 1;
+          if (currentDPR <= baseDPR + 0.01) {
+            e.preventDefault();
+          }
+        }
+      }, { passive: false });
+
+      // 4. Intercept touch pinch gestures below 100%
+      document.addEventListener('gesturestart', function (e) {
+        if (e.scale < 1) e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener('gesturechange', function (e) {
+        if (e.scale < 1) e.preventDefault();
+      }, { passive: false });
+
+      // 5. Watch for resize/zoom changes
+      window.addEventListener('resize', enforceMinZoom);
+      enforceMinZoom();
+    })();
+  </script>
+
   <!-- Theme init: runs synchronously before render to prevent flash -->
   <script>
     (function () {

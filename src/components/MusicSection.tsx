@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Music, Play, X } from "lucide-react";
 import { loadSongs, trackActivity } from "../lib/storage";
@@ -63,6 +64,10 @@ export default function MusicSection() {
                     alt={`${song.title} by ${song.artist}`}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 group-hover:rotate-1"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400";
+                    }}
                   />
                   
                   {/* Glassmorphic Play Overlay */}
@@ -108,57 +113,73 @@ export default function MusicSection() {
       </div>
 
       {/* YouTube Modal Overlay */}
-      <AnimatePresence>
-        {activeSong && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-sm"
-            onClick={() => setActiveSong(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-4xl bg-[#121214] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
-            >
-              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#16161c]">
-                <div className="flex items-center gap-3">
-                  <img src={activeSong.coverUrl} alt="cover" className="w-10 h-10 rounded-md object-cover" />
-                  <div>
-                    <h3 className="text-white font-bold text-sm tracking-wide">{activeSong.title}</h3>
-                    <p className="text-white/60 text-xs">{activeSong.artist}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setActiveSong(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {activeSong && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-md"
+                onClick={() => setActiveSong(null)}
+              >
+                <motion.div
+                  initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                  animate={{ scale: 1, y: 0, opacity: 1 }}
+                  exit={{ scale: 0.9, y: 20, opacity: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative w-full max-w-4xl bg-[#121214] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
                 >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="relative w-full aspect-video bg-black">
-                {getYoutubeId(activeSong.youtubeUrl) ? (
-                  <iframe
-                    className="w-full h-full absolute inset-0"
-                    src={`https://www.youtube.com/embed/${getYoutubeId(activeSong.youtubeUrl)}?autoplay=1`}
-                    title="YouTube video player"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/50 text-sm">
-                    Invalid YouTube URL
+                  <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#16161c]">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={activeSong.coverUrl}
+                        alt="cover"
+                        className="w-10 h-10 rounded-md object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400";
+                        }}
+                      />
+                      <div>
+                        <h3 className="text-white font-bold text-sm tracking-wide">
+                          {activeSong.title}
+                        </h3>
+                        <p className="text-white/60 text-xs">{activeSong.artist}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveSong(null)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
+                  <div className="relative w-full aspect-video bg-black">
+                    {getYoutubeId(activeSong.youtubeUrl) ? (
+                      <iframe
+                        className="w-full h-full absolute inset-0"
+                        src={`https://www.youtube.com/embed/${getYoutubeId(
+                          activeSong.youtubeUrl,
+                        )}?autoplay=1`}
+                        title="YouTube video player"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/50 text-sm">
+                        Invalid YouTube URL
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </section>
   );
 }
